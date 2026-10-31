@@ -57,10 +57,13 @@
       }
 
       try {
+        /* redirect_uri должен совпадать с тем, что уходил в authorize,
+           символ в символ — иначе Spotify вернёт 400 invalid_grant. */
+        const redirectUri = location.origin + location.pathname;
         const body = new URLSearchParams({
           grant_type: "authorization_code",
           code: code,
-          redirect_uri: location.origin + location.pathname.replace(/callback\.html.*$/, ""),
+          redirect_uri: redirectUri,
           /* Client Secret не используется — это PKCE. Client ID берём из
              хранилища; если его там нет — встроенный в сайт. */
           client_id: localStorage.getItem("limurane.spotify.clientId") ||
@@ -75,8 +78,15 @@
         });
 
         if (!resp.ok) {
-          status.textContent = "Обмен токена не удался (HTTP " + resp.status + ").";
-          setTimeout(() => location.replace("limurane.html"), 3500);
+          /* Покажем причину от Spotify, а не только код */
+          let detail = "";
+          try {
+            const err = await resp.json();
+            detail = err.error_description || err.error || "";
+          } catch (e) { /* тело не JSON — не критично */ }
+          status.textContent = "Обмен токена не удался (HTTP " + resp.status + ")" +
+            (detail ? ": " + detail : "") + ".";
+          setTimeout(() => location.replace("limurane.html"), 6000);
           return;
         }
 
