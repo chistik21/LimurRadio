@@ -118,6 +118,10 @@ const state = {
   coverUrls: new Map(),
   volume: 0.9,
   muted: false,
+  history: [],
+  cloud: [],
+  cloudResults: [],
+  cloudLoading: false,
   player: {
     queue: [],
     position: -1,
@@ -156,6 +160,54 @@ function loadSavedState() {
     if (typeof data.volume === "number" && data.volume >= 0 && data.volume <= 1) state.volume = data.volume;
   } catch (e) {
     console.warn("Не удалось прочитать сохранённое состояние", e);
+  }
+}
+
+/* Облако (Internet Archive) и история прослушивания */
+const CLOUD_KEY = "limurane.cloud";
+const HISTORY_KEY = "limurane.history";
+
+function saveCloud() {
+  try {
+    localStorage.setItem(CLOUD_KEY, JSON.stringify(state.cloud.slice(0, 200)));
+  } catch (e) {
+    console.warn("Облако не сохранено", e);
+  }
+}
+
+function loadCloud() {
+  try {
+    const raw = localStorage.getItem(CLOUD_KEY);
+    if (!raw) return;
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return;
+    for (const t of arr) {
+      if (t && t.id && t.source === "cloud" && t.url && !state.tracks.has(t.id)) {
+        state.tracks.set(t.id, t);
+      }
+    }
+    state.cloud = arr.filter((t) => t && t.id && state.tracks.has(t.id));
+  } catch (e) {
+    console.warn("Облако не загружено", e);
+  }
+}
+
+function saveHistory() {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(state.history.slice(0, 60)));
+  } catch (e) {
+    console.warn("История не сохранена", e);
+  }
+}
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (!raw) return;
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr)) state.history = arr.filter((x) => typeof x === "string");
+  } catch (e) {
+    console.warn("История не загружена", e);
   }
 }
 
@@ -307,6 +359,8 @@ function probeDuration(file) {
 }
 
 async function ensureTrackUrl(id) {
+  const t = state.tracks.get(id);
+  if (t && t.source === "cloud") return t.url;
   if (state.objectUrls.has(id)) return state.objectUrls.get(id);
   const rec = await idbGet("files", id);
   if (!rec || !rec.blob) return "";
@@ -316,6 +370,11 @@ async function ensureTrackUrl(id) {
 }
 
 async function getCoverUrl(id) {
+  const t = state.tracks.get(id);
+  if (t && t.source === "cloud") {
+    if (!state.coverUrls.has(id) && t.coverUrl) state.coverUrls.set(id, t.coverUrl);
+    return state.coverUrls.get(id) || null;
+  }
   if (state.coverUrls.has(id)) return state.coverUrls.get(id);
   if (!state.tracks.get(id)?.hasCover) return null;
   const blob = await idbGet("covers", id);
@@ -328,11 +387,16 @@ async function getCoverUrl(id) {
 function deleteTrack(id) {
   const t = state.tracks.get(id);
   if (!t) return;
+  const isCloud = t.source === "cloud";
   state.tracks.delete(id);
+  state.cloud = state.cloud.filter((c) => c.id !== id);
+  saveCloud();
   state.favorites = state.favorites.filter((fid) => fid !== id);
   state.playlists.forEach((p) => (p.trackIds = p.trackIds.filter((x) => x !== id)));
-  idbDel("files", id).catch(() => {});
-  idbDel("covers", id).catch(() => {});
+  if (!isCloud) {
+    idbDel("files", id).catch(() => {});
+    idbDel("covers", id).catch(() => {});
+  }
   const url = state.objectUrls.get(id);
   if (url) {
     URL.revokeObjectURL(url);
@@ -559,6 +623,14 @@ function updatePlayerUI() {
 audio.addEventListener("play", updatePlayerUI);
 audio.addEventListener("pause", updatePlayerUI);
 audio.addEventListener("ended", () => nextTrack(true));
+
+/* История прослушивания */
+audio.addEventListener("play", () => {
+  const id = state.player.playingId;
+  if (!id) return;
+  state.history = [id, ...state.history.filter((x) => x !== id)].slice(0, 60);
+  saveHistory();
+});
 
 audio.addEventListener("loadedmetadata", () => {
   if (Number.isFinite(audio.duration)) $("#timeTotal").textContent = fmtTime(audio.duration);
@@ -1004,6 +1076,8 @@ function currentViewTrackIds() {
     }
     case "search":
       return searchTracks().map((t) => t.id);
+    case "cloud":
+      return [...state.tracks.values()].filter((t) => t.source === "cloud").map((t) => t.id);
     default:
       return [...state.tracks.keys()];
   }
@@ -1039,6 +1113,8 @@ function render() {
       return renderAlbum();
     case "playlist":
       return renderPlaylist();
+    case "cloud":
+      return renderCloud();
     default:
       return renderHome();
   }
@@ -1386,6 +1462,225 @@ function renderSearch() {
   }
 }
 
+/* ---------------- Облако (Internet Archive) ---------------- */
+
+const ARCHIVE = "https://archive.org";
+let cloudQuery = "";
+
+async function fetchJSON(url) {
+  if (typeof fetch !== "function") throw new Error("fetch недоступен");
+  const resp = await fetch(url, { headers: { Accept: "application/json" } });
+  if (!resp.ok) throw new Error("HTTP " + resp.status);
+  return resp.json();
+}
+
+function parseLength(len) {
+  if (!len) return 0;
+  if (typeof len === "number" && Number.isFinite(len)) return Math.round(len * 10) / 10;
+  if (String(len).includes(":")) {
+    const parts = String(len).split(":").map(Number);
+    if (parts.some(Number.isNaN)) return 0;
+    return parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
+  }
+  const sec = parseFloat(len);
+  return Number.isFinite(sec) ? Math.round(sec * 10) / 10 : 0;
+}
+
+const CLOUD_PRESETS = [
+  { label: "Нетлейблы (CC)", q: 'collection:netlabels' },
+  { label: "Электроника", q: 'collection:netlabels AND subject:"electronic"' },
+  { label: "Хип-хоп", q: 'collection:netlabels AND subject:"hip hop"' },
+  { label: "Олдскул", q: 'collection:78rpm_and_early_cinema OR collection:oldtimeradio' },
+  { label: "Рейв/Jungle", q: 'collection:netlabels AND (subject:jungle OR subject:rave)' },
+];
+
+async function cloudSearch(q) {
+  cloudQuery = q;
+  state.cloudLoading = true;
+  state.cloudResults = [];
+  render();
+  try {
+    const expr = q.trim()
+      ? `(mediatype:audio) AND (${q.trim()})`
+      : "(mediatype:audio) AND (collection:netlabels)";
+    const url =
+      `${ARCHIVE}/advancedsearch.php?q=${encodeURIComponent(expr)}` +
+      `&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=downloads` +
+      `&rows=24&page=1&output=json&sort%5B%5D=downloads+desc`;
+    const data = await fetchJSON(url);
+    const docs = (data.response && data.response.docs) || [];
+    state.cloudResults = docs.map((d) => ({
+      identifier: d.identifier,
+      title: d.title || d.identifier,
+      creator: Array.isArray(d.creator) ? d.creator.join(", ") : d.creator || "",
+      downloads: d.downloads || 0,
+    }));
+  } catch (e) {
+    console.warn("Поиск в облаке не удался", e);
+    toast("Облако недоступно: " + e.message);
+  }
+  state.cloudLoading = false;
+  render();
+}
+
+async function cloudLoadItem(doc) {
+  toast("Загружаю альбом из архива…");
+  try {
+    const meta = await fetchJSON(`${ARCHIVE}/metadata/${encodeURIComponent(doc.identifier)}`);
+    const files = (meta.files || [])
+      .filter((f) => f.format && f.format.includes("MP3") && /\.mp3$/i.test(f.name || ""))
+      .slice(0, 12);
+    if (!files.length) {
+      toast("В этом альбоме нет MP3 на воспроизведение");
+      return;
+    }
+    const creator =
+      doc.creator ||
+      (Array.isArray(meta.metadata && meta.metadata.creator)
+        ? meta.metadata.creator.join(", ")
+        : (meta.metadata && meta.metadata.creator) || "Из архива");
+    const album = doc.title;
+    const ids = [];
+    for (const f of files) {
+      const id = "c" + Math.abs(
+        [...`${doc.identifier}/${f.name}`].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) | 0, 7)
+      ).toString(36);
+      if (state.tracks.has(id)) {
+        ids.push(id);
+        continue;
+      }
+      const baseName = (f.title || f.name.replace(/\.[^.]+$/, "")).replace(/^\d+[\s.\-_]+/, "");
+      const trackTitle = files.length > 1 ? `${doc.title} — ${baseName}` : baseName === doc.title ? doc.title : `${doc.title} · ${baseName}`;
+      const tmeta = {
+        id,
+        title: trackTitle.slice(0, 120),
+        artist: creator,
+        album,
+        duration: parseLength(f.length),
+        added: Date.now(),
+        hasCover: false,
+        fileName: f.name,
+        source: "cloud",
+        coverUrl: `${ARCHIVE}/services/img/${encodeURIComponent(doc.identifier)}`,
+        url: `${ARCHIVE}/download/${encodeURIComponent(doc.identifier)}/${encodeURIComponent(f.name)}`,
+      };
+      state.cloud.push(tmeta);
+      state.tracks.set(id, tmeta);
+      state.coverUrls.set(id, tmeta.coverUrl);
+      ids.push(id);
+    }
+    saveCloud();
+    render();
+    refreshSidebar();
+    if (ids.length) playTrack(ids[0], ids);
+  } catch (e) {
+    console.warn("Альбом из облака не загрузился", e);
+    toast("Альбом недоступен: " + e.message);
+  }
+}
+
+function renderCloud() {
+  const head = el("div", "cloud-head");
+  head.appendChild(el("div", "hero-kicker", "Облако"));
+  const title = el("h1", "hero-title", "Internet Archive");
+  title.style.fontSize = "clamp(22px, 4.5vw, 32px)";
+  head.appendChild(title);
+  head.appendChild(
+    el("p", "cloud-note", "Открытая фонотека archive.org: CC-музыка, нетлейблы, олдскул. Играет через ваш плеер — обложки, избранное и плейлисты работают как обычно.")
+  );
+  viewEl.appendChild(head);
+
+  /* Поисковая строка */
+  const form = el("form", "cloud-search");
+  form.setAttribute("role", "search");
+  const input = el("input");
+  input.type = "search";
+  input.placeholder = "Поиск в архиве: исполнитель, трек, коллекция…";
+  input.value = cloudQuery;
+  input.autocomplete = "off";
+  input.setAttribute("aria-label", "Поиск в Internet Archive");
+  const btn = el("button", "btn primary", "Найти");
+  btn.type = "submit";
+  form.appendChild(input);
+  form.appendChild(btn);
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    cloudSearch(input.value);
+  });
+  viewEl.appendChild(form);
+
+  /* Быстрые подборки */
+  const chips = el("div", "cloud-chips");
+  CLOUD_PRESETS.forEach((p) => {
+    const chip = el("button", "chip", p.label);
+    chip.addEventListener("click", () => cloudSearch(p.q));
+    chips.appendChild(chip);
+  });
+  viewEl.appendChild(chips);
+
+  if (state.cloudLoading) {
+    const spin = el("div", "spinner-wrap");
+    const s = el("div", "spinner");
+    spin.appendChild(s);
+    spin.appendChild(el("span", null, "Ищу в архиве…"));
+    viewEl.appendChild(spin);
+    return;
+  }
+
+  if (cloudQuery && state.cloudResults.length) {
+    const sec = makeSection("Найдено в архиве", "сброс", () => {
+      cloudQuery = "";
+      state.cloudResults = [];
+      render();
+    });
+    const grid = el("div", "grid");
+    for (const doc of state.cloudResults) grid.appendChild(makeCloudCard(doc));
+    sec.appendChild(grid);
+    viewEl.appendChild(sec);
+  } else if (cloudQuery) {
+    viewEl.appendChild(
+      makeEmptyState({
+        icon: ICONS.search,
+        title: "В архиве такого не нашлось",
+        text: "Попробуйте другое слово или откройте готовые подборки выше.",
+      })
+    );
+  }
+
+  /* История прослушивания */
+  const histIds = state.history.filter((id) => state.tracks.has(id));
+  const secHist = makeSection("Недавно играло", histIds.length ? "очистить" : null, () => {
+    state.history = [];
+    saveHistory();
+    render();
+  });
+  if (histIds.length) {
+    secHist.appendChild(makeTrackList(histIds));
+  } else {
+    const hint = el("p", null, "Пока пусто. Включите что-нибудь из архива или библиотеки — свежие треки будут появляться здесь.");
+    hint.style.color = "var(--text-dim)";
+    hint.style.fontSize = "14px";
+    secHist.appendChild(hint);
+  }
+  viewEl.appendChild(secHist);
+}
+
+function makeCloudCard(doc) {
+  const card = el("div", "card");
+  const cover = el("div", "card-cover");
+  const img = el("img");
+  img.alt = "";
+  img.loading = "lazy";
+  img.src = `${ARCHIVE}/services/img/${encodeURIComponent(doc.identifier)}`;
+  img.onerror = () => img.remove();
+  cover.appendChild(img);
+  card.appendChild(cover);
+  card.appendChild(el("div", "card-title", doc.title));
+  card.appendChild(el("div", "card-sub", doc.creator || "из архива"));
+  card.addEventListener("click", () => cloudLoadItem(doc));
+  return card;
+}
+
 /* ---------------- Боковая панель ---------------- */
 
 function refreshSidebar() {
@@ -1421,6 +1716,13 @@ function refreshSidebar() {
   const n = state.favorites.filter((id) => state.tracks.has(id)).length;
   favCount.hidden = n === 0;
   favCount.textContent = String(n);
+
+  const cloudCount = $("#cloudCount");
+  if (cloudCount) {
+    const cn = state.cloud.length;
+    cloudCount.hidden = cn === 0;
+    cloudCount.textContent = String(cn);
+  }
 }
 
 /* ---------------- Навигационные события ---------------- */
@@ -1508,6 +1810,8 @@ document.addEventListener("drop", (e) => {
 
 async function loadLibrary() {
   try {
+    loadCloud();
+    loadHistory();
     const records = await idbGetAll("files");
     for (const rec of records) {
       if (!rec || !rec.meta) continue;
