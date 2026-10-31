@@ -17,6 +17,10 @@
   const LS_TRACKS = "limurane.spotify.tracks";
   const LS_RECENT = "limurane.spotify.recent";
 
+  /* Client ID приложения сайта (не секрет). Пользователь может
+     заменить своим в строке входа. */
+  const DEFAULT_CLIENT_ID = "a2588370d8fa4d658a7d8f21ba4fc65e";
+
   const API = "https://api.spotify.com/v1";
   const AUTH_URL = "https://accounts.spotify.com/authorize";
   const TOKEN_URL = "https://accounts.spotify.com/api/token";
@@ -45,7 +49,11 @@
   }
 
   function clientId() {
-    return (localStorage.getItem(LS_CLIENT) || "").trim();
+    return (localStorage.getItem(LS_CLIENT) || "").trim() || DEFAULT_CLIENT_ID;
+  }
+
+  function isClientIdDefault() {
+    return !(localStorage.getItem(LS_CLIENT) || "").trim();
   }
 
   function isConnected() {
@@ -345,7 +353,10 @@
 
   function statusBar() {
     const wrap = el("div", "sp-status");
-    wrap.appendChild(el("div", "sp-label", "Spotify — официальное API. Вставьте Client ID приложения (dashboard → Web API + Web Playback SDK + Embeds), затем войдите."));
+    wrap.appendChild(el("div", "sp-label",
+      isClientIdDefault()
+        ? "Приложение Spotify уже подключено к сайту — под своей учёткой достаточно нажать «Войти»."
+        : "Spotify — официальное Web API. Используется ваш Client ID; очистите поле, чтобы вернуть встроенный."));
     const input = el("input");
     input.type = "text";
     input.placeholder = "Client ID приложения Spotify";
