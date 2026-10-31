@@ -78,6 +78,9 @@ svg { width: 18px; height: 18px; fill: currentColor; display: block; }
 .app {
   display: grid;
   grid-template-columns: 264px 1fr;
+  /* одна строка строго в высоту контейнера — иначе длинный список
+     раздувает каркас за экран, а body overflow:hidden его обрезает */
+  grid-template-rows: minmax(0, 1fr);
   height: 100vh;
   height: 100dvh;
 }
@@ -86,6 +89,7 @@ svg { width: 18px; height: 18px; fill: currentColor; display: block; }
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
 }
 
 /* ---------- Боковая панель ---------- */
