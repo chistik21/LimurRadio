@@ -131,6 +131,13 @@ const state = {
   },
 };
 
+/* Наружу — для модулей разделов (Погода, Spotify, Яндекс) */
+window.state = state;
+window.el = el;
+window.navigate = navigate;
+window.render = render;
+window.refreshSidebar = refreshSidebar;
+
 function saveState() {
   try {
     localStorage.setItem(
@@ -1183,6 +1190,10 @@ function render() {
 
 function renderHome() {
   const tracks = [...state.tracks.values()];
+  /* Виджет погоды — liquid glass карточка над библиотекой */
+  if (window.Weather && typeof Weather.widget === "function") {
+    viewEl.appendChild(Weather.widget());
+  }
   if (!tracks.length) {
     viewEl.appendChild(
       makeEmptyState({
