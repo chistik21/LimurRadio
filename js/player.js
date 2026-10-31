@@ -464,10 +464,14 @@ async function playCurrent() {
   }
   if (position !== queue.indexOf(id)) return; // пользователь уже переключился
 
-  /* Audio Spotify Web API не отдаётся — открываем страницу трека */
+  /* Audio Spotify Web API не отдаётся — играем официальный Embed или открываем страницу */
   if (track.source === "spotify") {
-    toast("Аудио Spotify в API недоступно — открываю страницу трека");
-    window.open(track.url, "_blank", "noopener");
+    if (window.SpotifyViews && SpotifyViews.openEmbed) {
+      SpotifyViews.openEmbed(track);
+    } else {
+      toast("Аудио Spotify в API недоступно — открываю страницу трека");
+      window.open(track.url, "_blank", "noopener");
+    }
     return;
   }
 
@@ -906,6 +910,12 @@ function trackMenuItems(track) {
     },
   ];
 
+  /* Официальные действия Spotify (модуль spotify.js) */
+  if (track.source === "spotify" && window.SpotifyViews) {
+    items.push({ text: "Слушать здесь · Spotify", icon: "music", action: () => SpotifyViews.openEmbed(track) });
+    items.push({ text: "Открыть на Spotify", icon: "search", action: () => window.open(track.url, "_blank", "noopener") });
+  }
+
   items.push({ label: "Добавить в плейлист" });
   if (!state.playlists.length) {
     items.push({ text: "Плейлистов пока нет", action: () => openPlaylistModal() });
@@ -1068,6 +1078,12 @@ const viewEl = $("#view");
 
 function navigate(view, data = null) {
   closeMenus();
+  /* Открытие страницы (альбом/плейлист/Spotify-каталог) закрывает поисковый режим */
+  if (state.query && view !== "search") {
+    state.query = "";
+    $("#searchInput").value = "";
+    $("#searchClear").hidden = true;
+  }
   if (state.view !== "search") state.prevView = state.view;
   state.view = view;
   state.viewData = data;
@@ -1078,7 +1094,7 @@ function navigate(view, data = null) {
 
 function currentViewTrackIds() {
   /* Виды Spotify не имеют локальной очереди треков */
-  if (state.view.startsWith("spotify-")) return [];
+  if (state.view === "spotify" || state.view.startsWith("spotify-")) return [];
   switch (state.view) {
     case "favorites":
       return state.favorites.filter((id) => state.tracks.has(id));
@@ -1121,7 +1137,7 @@ function render() {
   viewEl.replaceChildren();
   if (state.query) return renderSearch();
   /* Виды Spotify рисует их модуль */
-  if (state.view.startsWith("spotify-") && window.SpotifyViews && SpotifyViews.views[state.view]) {
+  if ((state.view === "spotify" || state.view.startsWith("spotify-")) && window.SpotifyViews && SpotifyViews.views[state.view]) {
     return SpotifyViews.views[state.view]();
   }
   switch (state.view) {
@@ -1436,14 +1452,19 @@ function renderFavorites() {
 function renderSearch() {
   const q = state.query;
 
+  /* Spotify подключается к общему поиску (модуль spotify.js, с задержкой на набор) */
+  if (window.SpotifyViews && SpotifyViews.onUnifiedQuery) SpotifyViews.onUnifiedQuery(q);
+
   if (!state.tracks.size || !searchTracks().length) {
     viewEl.appendChild(
       makeEmptyState({
         icon: ICONS.search,
         title: "Ничего не найдено",
-        text: `По запросу «${q}» ничего нет. Проверьте раскладку или поищите по названию трека, исполнителю или альбому.`,
+        text: `По запросу «${q}» здесь ничего нет. Проверьте раскладку или поищите по названию трека, исполнителю или альбому.`,
       })
     );
+    /* Но Spotify подключён к общему поиску и ищет по всему каталогу */
+    if (window.SpotifyViews && SpotifyViews.searchMount) viewEl.appendChild(SpotifyViews.searchMount());
     return;
   }
 
@@ -1478,6 +1499,9 @@ function renderSearch() {
     secP.appendChild(grid);
     viewEl.appendChild(secP);
   }
+
+  /* Результаты Spotify ниже локальных */
+  if (window.SpotifyViews && SpotifyViews.searchMount) viewEl.appendChild(SpotifyViews.searchMount());
 }
 
 /* ---------------- Облако (Internet Archive) ---------------- */
@@ -1709,7 +1733,11 @@ function makeCloudCard(doc) {
 function refreshSidebar() {
   const nav = $("#sideNav");
   if (nav) {
-    nav.querySelectorAll(".side-link").forEach((b) => b.classList.toggle("active", b.dataset.nav === state.view));
+    nav.querySelectorAll(".side-link").forEach((b) => {
+    const active = b.dataset.nav === state.view ||
+      (b.dataset.nav === "spotify" && state.view.startsWith("spotify-"));
+    b.classList.toggle("active", active);
+  });
   }
 
   const list = $("#sidePlaylists");
