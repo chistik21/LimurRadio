@@ -1,0 +1,72 @@
+name: Spotify app token
+
+# Обновляет spotify-token.json токеном приложения (Client Credentials).
+# Client Secret живёт ТОЛЬКО в GitHub Secrets — в репозиторий не попадает.
+# Сайт читает готовый токен из файла: поиск работает без входа посетителей.
+
+on:
+  schedule:
+    - cron: "*/20 * * * *" # каждые 20 минут (токен живёт 1 час)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: spotify-token
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    env:
+      SPOTIFY_CLIENT_ID_FALLBACK: "52368657722b4d06bc672a8f6244969c"
+      SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Получить токен приложения
+        if: env.SPOTIFY_CLIENT_SECRET != ''
+        run: |
+          python3 - <<'EOF'
+          import os, json, base64, time, urllib.request, urllib.parse
+
+          cid = os.environ.get("SPOTIFY_CLIENT_ID") or os.environ["SPOTIFY_CLIENT_ID_FALLBACK"]
+          secret = os.environ["SPOTIFY_CLIENT_SECRET"]
+
+          body = urllib.parse.urlencode({"grant_type": "client_credentials"}).encode()
+          auth = base64.b64encode(f"{cid}:{secret}".encode()).decode()
+          req = urllib.request.Request(
+              "https://accounts.spotify.com/api/token",
+              data=body,
+              headers={
+                  "Authorization": "Basic " + auth,
+                  "Content-Type": "application/x-www-form-urlencoded",
+              },
+          )
+          with urllib.request.urlopen(req, timeout=25) as resp:
+              tok = json.load(resp)
+
+          out = {
+              "access_token": tok["access_token"],
+              "expires_at": int(time.time()) + int(tok.get("expires_in", 3600)),
+              "updated_at": int(time.time()),
+          }
+          with open("spotify-token.json", "w") as f:
+              json.dump(out, f, separators=(",", ":"))
+          print("Token received, expires in", tok.get("expires_in"), "s")
+          EOF
+
+      - name: Закоммитить токен
+        if: env.SPOTIFY_CLIENT_SECRET != ''
+        run: |
+          git config user.name "limurane-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add spotify-token.json
+          if git diff --cached --quiet; then
+            echo "Токен без изменений"
+          else
+            git commit -m "Spotify app token refresh"
+            git push
+          fi
