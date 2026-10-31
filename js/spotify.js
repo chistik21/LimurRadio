@@ -874,10 +874,15 @@
     }
     viewWrapper(async () => {
       const artist = await api("/artists/" + encodeURIComponent(base.id));
-      const [top, albums] = await Promise.all([
-        api("/artists/" + encodeURIComponent(base.id) + "/top-tracks"),
-        api("/artists/" + encodeURIComponent(base.id) + "/albums", { limit: "12" }),
-      ]);
+      const albums = await api("/artists/" + encodeURIComponent(base.id) + "/albums", { limit: "12" });
+      /* Топ-треки доступны не всем приложениям Spotify (у встроенного
+         токена бывает 403) — страница не должна из-за этого падать. */
+      let top = { tracks: [] };
+      try {
+        top = await api("/artists/" + encodeURIComponent(base.id) + "/top-tracks");
+      } catch (e) {
+        console.warn("Spotify: топ-треки недоступны", e);
+      }
       const cover = (artist.images && artist.images[0] && artist.images[0].url) || "";
       viewEl.appendChild(buildHero(
         "Исполнитель Spotify",
