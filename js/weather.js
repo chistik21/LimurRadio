@@ -6,7 +6,14 @@
 (function () {
   "use strict";
 
-  if (typeof state === "undefined") return;
+  /* Самостоятельная страница (weather.html) не грузит плеер: там своего state нет,
+     а общий store всё равно нужен — погода симметрична для обоих хостов. */
+  const ownState = typeof state !== "undefined";
+  if (!ownState) window.state = { view: "weather", weather: null, unit: "C" };
+
+  /* Оба хоста (плеер и отдельная страница) читают стор единообразно.
+     На странице плеера это те же объекты, что и глобальные. */
+  const S = window.state;
 
   const LS_W = "limurane.weather.v2";
   const DEFAULT_CITY = { name: "Шумерля", admin: "Чувашия", lat: 55.5005, lon: 46.41288 };
@@ -20,7 +27,7 @@
     }
   })();
 
-  state.weather = {
+  S.weather = {
     city: (stored && stored.city) || DEFAULT_CITY,
     data: (stored && stored.data) || null,
     loading: false,
@@ -151,8 +158,8 @@
     return Math.round(v);
   }
 
-  const unitSign = () => (state.weather.unit === "F" ? "°F" : "°C");
-  const tempText = (t) => `${convert(t, state.weather.unit)}°`;
+  const unitSign = () => (S.weather.unit === "F" ? "°F" : "°C");
+  const tempText = (t) => `${convert(t, S.weather.unit)}°`;
 
   function windDir(deg) {
     const dirs = ["С", "СВ", "В", "ЮВ", "Ю", "ЮЗ", "З", "СЗ"];
@@ -256,22 +263,29 @@
 
   function save() {
     try {
-      localStorage.setItem(LS_W, JSON.stringify({ city: state.weather.city, data: state.weather.data, unit: state.weather.unit }));
+      localStorage.setItem(LS_W, JSON.stringify({ city: S.weather.city, data: S.weather.data, unit: S.weather.unit }));
     } catch (e) {
       /* квота — не критично */
     }
   }
 
+  /* Перерисовать только текущий экран — без сброса в раздел «Главная».
+     На радио `render()` рисует библиотеку, поэтому зовём его лишь вне радио. */
   function repaint() {
-    if (typeof render === "function") render();
-    if (typeof refreshSidebar === "function") refreshSidebar();
+    if (ownState && typeof render === "function") render();
+    if (ownState && typeof refreshSidebar === "function") refreshSidebar();
+  }
+
+  function repaintWeather() {
+    if (S.view === "weather" && window.viewEl) page();
   }
 
   async function load(city) {
-    const w = state.weather;
+    const w = S.weather;
     w.loading = true;
     w.error = "";
-    if (state.view === "weather" || state.view === "home") repaint();
+    if (S.view === "weather") repaintWeather();
+    else repaint();
     try {
       const data = await fetchWeather(city || w.city);
       w.data = data;
@@ -280,34 +294,48 @@
       w.error = e.message || "Не удалось загрузить погоду";
     }
     w.loading = false;
-    if (state.view === "weather" || state.view === "home") repaint();
+    if (S.view === "weather") repaintWeather();
+    else repaint();
     window.dispatchEvent(new CustomEvent("weather:update"));
   }
 
   async function setCity(name) {
-    state.weather.loading = true;
-    state.weather.error = "";
-    repaint();
+    S.weather.loading = true;
+    S.weather.error = "";
+    if (S.view === "weather") repaintWeather();
+    else repaint();
     try {
       const city = await geocode(name);
-      state.weather.city = city;
-      state.weather.data = null;
+      S.weather.city = city;
+      S.weather.data = null;
       await load(city);
     } catch (e) {
-      state.weather.error = e.message;
-      state.weather.loading = false;
-      repaint();
+      S.weather.error = e.message;
+      S.weather.loading = false;
+      notice(e.message);
+      if (S.view === "weather") repaintWeather();
+      else repaint();
     }
   }
 
   function toggleUnit() {
-    state.weather.unit = state.weather.unit === "C" ? "F" : "C";
+    S.weather.unit = S.weather.unit === "C" ? "F" : "C";
     save();
-    repaint();
+    if (S.view === "weather") repaintWeather();
+    else repaint();
   }
 
   function refresh() {
-    return load(state.weather.city);
+    return load(S.weather.city);
+  }
+
+  /* На отдельной странице ошибки некуда вывести тостами — показываем их в ленте */
+  function notice(text) {
+    const root = document.getElementById("toastRoot");
+    if (!root) return;
+    const t = node("div", "wx-toast", text);
+    root.appendChild(t);
+    setTimeout(() => t.remove(), 2600);
   }
 
   /* ================= UI: утилиты ================= */
@@ -346,7 +374,7 @@
   /* Подписи под крупным значком героя: AQI у Apple есть, у Open-Meteo нет —
      показываем «Ощущается как» и УФ-индекс. */
   function heroChips() {
-    const w = state.weather;
+    const w = S.weather;
     const c = w.data.current;
     const day = w.data.days[0];
     const uv = day.uv ?? 0;
@@ -363,7 +391,7 @@
   }
 
   function bgUrl() {
-    const w = state.weather;
+    const w = S.weather;
     if (!w.data) {
       const h = new Date().getHours();
       return PHOTOS[h >= 7 && h < 18 ? "day-partly" : "night-partly"];
@@ -374,7 +402,7 @@
   /* ================= UI: виджет на главной ================= */
 
   function widget() {
-    const w = state.weather;
+    const w = S.weather;
     const d = w.data;
     const card = node("div", "wxw");
     card.setAttribute("role", "button");
@@ -438,7 +466,7 @@
   /* ================= UI: страница погоды ================= */
 
   function heroCard() {
-    const w = state.weather;
+    const w = S.weather;
     const d = w.data;
     const card = glass("wx-hero");
     if (d) card.style.backgroundImage = `url("${bgUrl()}")`;
@@ -485,7 +513,7 @@
   }
 
   function hourlyCard() {
-    const w = state.weather;
+    const w = S.weather;
     const d = w.data;
     const card = glass("wx-panel");
     const head = node("div", "wx-panel-head");
@@ -505,7 +533,7 @@
   }
 
   function dailyCard() {
-    const w = state.weather;
+    const w = S.weather;
     const d = w.data;
     const card = glass("wx-panel");
     const head = node("div", "wx-panel-head");
@@ -546,7 +574,7 @@
   }
 
   function detailsCard() {
-    const w = state.weather;
+    const w = S.weather;
     const c = w.data.current;
     const day = w.data.days[0];
     const unit = unitSign();
@@ -570,11 +598,13 @@
   }
 
   function page() {
+    const viewEl = window.viewEl || document.getElementById("view");
+    if (!viewEl) return;
     viewEl.replaceChildren();
     const wrap = node("div", "wx-page");
     wrap.style.setProperty("--wx-bg", `url("${bgUrl()}")`);
 
-    const w = state.weather;
+    const w = S.weather;
     const bar = node("div", "wx-toolbar");
     const title = node("div", "wx-title-wrap");
     title.appendChild(node("h1", "wx-title", "Погода"));
@@ -665,14 +695,31 @@
     load,
     setCity,
     toggleUnit,
+    /* для радио и других страниц: данные и перерисовка «лишь бы видимого» экрана */
+    data: () => S.weather.data,
+    city: () => S.weather.city,
+    convert,
+    unit: () => S.weather.unit,
+    onChange(fn) {
+      const h = () => fn();
+      window.addEventListener("weather:update", h);
+      return () => window.removeEventListener("weather:update", h);
+    },
   };
 
   window.WeatherViews = {
     views: { weather: page },
   };
+  window.viewEl = window.viewEl || document.getElementById("view");
 
   /* Модуль рисует страницу сам, если стартовый вид — погода */
-  if (state.view === "weather") page();
+  /* На отдельной странице плеера нет — рисуем сразу и без виджета */
+  if (!ownState) {
+    document.title = "Погода · Шумерля";
+    page();
+  } else if (S.view === "weather") {
+    page();
+  }
 
   /* Автообновление: раз в 15 минут, и разово при возврате на вкладку */
   setInterval(() => {
@@ -680,11 +727,11 @@
   }, 15 * 60 * 1000);
 
   document.addEventListener("visibilitychange", () => {
-    const w = state.weather;
+    const w = S.weather;
     if (!document.hidden && (!w.data || Date.now() - w.data.at > 10 * 60 * 1000)) load(w.city);
   });
 
-  if (!state.weather.data || Date.now() - state.weather.data.at > 10 * 60 * 1000) {
-    load(state.weather.city);
+  if (!S.weather.data || Date.now() - S.weather.data.at > 10 * 60 * 1000) {
+    load(S.weather.city);
   }
 })();

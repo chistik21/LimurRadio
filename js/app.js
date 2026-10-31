@@ -15,7 +15,7 @@ window.addEventListener("error", (e) => {
   const msg = (e && (e.error && e.error.message || e.message)) || "неизвестная ошибка";
   const root = $("#toastRoot");
   if (!root) return;
-  const t = el("div", "toast", "⚠️ " + msg);
+  const t = el("div", "toast", "Ошибка: " + msg);
   t.style.borderColor = "#ff2ea6";
   root.appendChild(t);
 }, true);
@@ -25,7 +25,7 @@ window.addEventListener("unhandledrejection", (e) => {
   if (!root) return;
   const reason = e && e.reason;
   const msg = (reason && (reason.message || String(reason))) || "отказ обещания";
-  const t = el("div", "toast", "⚠️ JS: " + msg);
+  const t = el("div", "toast", "Ошибка: " + msg);
   t.style.borderColor = "#ffcf2e";
   root.appendChild(t);
 });
@@ -405,13 +405,49 @@ function updateMediaSession(st) {
 
 const viewEl = $("#view");
 
+/* Синонимы для поиска: ищется и по-русски, и латиницей */
+const SEARCH_ALIASES = {
+  volna: "главная upwave упоротая",
+  "volna-hq": "главная hq качество 320",
+  gop: "гоп хардбасс hardbass двор хард-басс",
+  hbass: "хардбасс hardbass басс",
+  rave: "рейв rave",
+  ps: "днб dnb drum and bass",
+  dub: "даб dubstep",
+  techno: "техно",
+  goa: "психоделика psy trance гоа",
+  chil: "чил chillout",
+  chillh: "чил хаус chillhouse",
+  lofih: "лофай lofi lo-fi винил",
+  "soma-gs": "сома джаз эмбиент",
+  "soma-dc": "хакеры defcon",
+  sd90: "дискотека девяностые 90",
+  y1980: "восьмидесятые 80 синт",
+  rus: "русское ностальгия",
+  "soma-80": "подполье 80 восьмидесятые",
+};
+
+const SECTION_TITLES = { main: "главная волна", loud: "жарко", calm: "спокойное чил", olds: "олды ретро классика" };
+
+const SEARCH_INDEX = new Map();
+
+/* Одна строка на волну: имя, жанр, раздел, синонимы. Собирается один раз */
+function searchText(st) {
+  let v = SEARCH_INDEX.get(st.id);
+  if (!v) {
+    v = [st.name, st.genre, SECTION_TITLES[st.mood] || "", SEARCH_ALIASES[st.id] || ""]
+      .join(" ")
+      .toLowerCase();
+    SEARCH_INDEX.set(st.id, v);
+  }
+  return v;
+}
+
 function visibleStations() {
   const q = state.query.toLowerCase();
   let list = STATIONS;
   if (state.onlyFav) list = list.filter((s) => state.favorites.includes(s.id));
-  if (q) {
-    list = list.filter((s) => s.name.toLowerCase().includes(q) || s.genre.toLowerCase().includes(q));
-  }
+  if (q) list = list.filter((s) => searchText(s).includes(q));
   if (state.onlyFav || q) return list;
   return [];
 }
@@ -430,6 +466,9 @@ function render() {
       empty.appendChild(el("p", null, state.onlyFav
         ? "Жми на сердечко у любой волны — она поселится здесь и переживёт перезагрузку."
         : "Такой волны нет. Попробуй «хардбасс», «гоп» или «чил»."));
+      const back = el("button", "btn primary", "Показать все волны");
+      back.dataset.action = "clear";
+      empty.appendChild(back);
       viewEl.appendChild(empty);
       return;
     }
@@ -479,7 +518,7 @@ function render() {
   chipAll.addEventListener("click", () => clearFilters());
   chips.appendChild(chipAll);
   for (const sec of SECTIONS) {
-    const chip = el("button", "chip small" + (state.view === sec.key ? " on" : ""), sec.title.replace(/^\S+\s/, ""));
+    const chip = el("button", "chip small" + (state.view === sec.key ? " on" : ""), sec.title.replace(/^\p{Extended_Pictographic}\uFE0F?\s+/u, ""));
     chip.addEventListener("click", () => {
       state.query = "";
       $("#searchInput").value = "";
@@ -569,7 +608,8 @@ function updatePlayerUI() {
   const isPlaying = !audio.paused && !state.paused && !!st;
 
   $("#npTitle").textContent = st ? `${st.emoji} ${st.name}` : "Волна не выбрана";
-  $("#npArt").textContent = st ? st.emoji : "📻";
+  $("#npArt").textContent = st ? st.emoji : "";
+  $("#npArt").classList.toggle("empty", !st);
 
   playBtn.disabled = !st;
   playBtn.classList.toggle("playing", isPlaying);
@@ -696,6 +736,11 @@ $(".brand-mark").addEventListener("click", () => {
 function init() {
   loadState();
   applyVolumeUI();
+
+  /* «Показать все волны» из пустого поиска — сбросить фильтры */
+  viewEl.addEventListener("click", (e) => {
+    if (e.target.closest("[data-action='clear']")) clearFilters();
+  });
 
   const chip = $("#favChip");
   chip.classList.toggle("on", state.onlyFav);

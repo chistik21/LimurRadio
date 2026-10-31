@@ -7,14 +7,15 @@
   <meta name="theme-color" content="#0b0510">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0510'/%3E%3Cpath d='M8 40c4-20 10-20 14-10s10 10 14-10 10-10 14 4' fill='none' stroke='%23ff2ea6' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
   <title>Упоротая волна — интернет-радио</title>
-  <link rel="stylesheet" href="css/style.css?v=9">
+  <link rel="stylesheet" href="css/style.css?v=11">
 </head>
 <body>
   <div class="page">
   <header class="topbar">
     <nav class="tabs" aria-label="Приложения">
-      <a class="tab active" href="index.html" aria-current="page">📻 Упоротая волна</a>
-      <a class="tab" href="limurane.html">🎵 Limurane</a>
+      <a class="tab active" href="index.html" aria-current="page">Упоротая волна</a>
+      <a class="tab" href="limurane.html">Limurane</a>
+      <a class="tab" href="weather.html">Погода</a>
     </nav>
     <div class="brand">
       <span class="brand-mark" aria-hidden="true"></span>
@@ -35,7 +36,7 @@
   <!-- Нижняя панель радиоплеера — в потоке страницы, sticky над адресной строкой -->
   <footer class="player" id="player">
     <button class="np-btn" id="npBtn" aria-label="Играть текущую волну" disabled>
-      <span class="np-art" id="npArt" aria-hidden="true">📻</span>
+      <span class="np-art" id="npArt" aria-hidden="true"></span>
       <span class="np-eq" id="npEq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
     </button>
     <div class="np-info">
@@ -74,6 +75,6 @@
   <div id="toastRoot" aria-live="polite"></div>
   <audio id="radio" preload="none"></audio>
 
-  <script src="js/app.js?v=8"></script>
+  <script src="js/app.js?v=9"></script>
 </body>
 </html>

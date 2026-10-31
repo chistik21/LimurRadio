@@ -73,6 +73,7 @@
       <nav class="tabs" aria-label="Приложения">
         <a class="tab" href="index.html">Упоротая волна</a>
         <a class="tab active" href="limurane.html" aria-current="page">Limurane</a>
+        <a class="tab" href="weather.html">Погода</a>
       </nav>
 
       <header class="topbar">
@@ -173,6 +174,16 @@
   <script src="js/player.js?v=8"></script>
   <script src="js/spotify.js?v=8"></script>
   <script src="js/yandex.js?v=2"></script>
-  <script src="js/weather.js?v=1"></script>
+  <script src="js/weather.js?v=2"></script>
+  <script>
+    /* Вкладка «Погода» — отдельная страница; пункт сайдбара уходит туда же */
+    document.addEventListener("click", function (e) {
+      var link = e.target.closest('[data-nav="weather"]');
+      if (!link) return;
+      e.preventDefault();
+      e.stopPropagation();
+      location.href = "weather.html";
+    }, true);
+  </script>
 </body>
 </html>

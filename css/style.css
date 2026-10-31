@@ -68,7 +68,12 @@ svg { width: 18px; height: 18px; fill: currentColor; display: block; }
   display: flex;
   gap: 8px;
   margin-bottom: 10px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+
+.tabs::-webkit-scrollbar { display: none; }
 
 .tab {
   display: inline-flex;
@@ -477,6 +482,7 @@ svg { width: 18px; height: 18px; fill: currentColor; display: block; }
 }
 
 .np-art { font-size: 26px; }
+.np-art.empty { display: none; }
 .np-eq { display: none; gap: 3px; align-items: flex-end; height: 18px; }
 .np-eq i { width: 4px; border-radius: 2px; background: var(--acid); animation: beat 0.75s ease-in-out infinite; }
 .np-eq i:nth-child(1) { height: 55%; animation-delay: 0.15s; }
@@ -629,7 +635,8 @@ input[type="range"]::-moz-range-thumb { width: 13px; height: 13px; border-radius
 /* ---------- Адаптивность ---------- */
 
 @media (max-width: 760px) {
-  .topbar { padding: 10px 14px; gap: 8px; }
+  .topbar { padding: 10px 14px; gap: 8px; flex-wrap: wrap; }
+  .topbar .search { order: 3; flex: 1 0 100%; max-width: none; }
   .tabs { gap: 6px; margin-bottom: 4px; }
   .tab { padding: 8px 14px; font-size: 12.5px; }
   .brand-name { font-size: 15px; }
@@ -644,14 +651,16 @@ input[type="range"]::-moz-range-thumb { width: 13px; height: 13px; border-radius
   .station-emoji { width: 40px; height: 40px; font-size: 19px; }
 
   .player {
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
     height: calc(var(--player-h) + env(safe-area-inset-bottom));
     padding: 8px 10px env(safe-area-inset-bottom);
-    gap: 10px;
+    gap: 8px;
   }
 
-  .player-right { display: none; }
   .player-controls { gap: 2px; }
+  .player-right { gap: 2px; }
+  .vol-ic { display: none; }
+  #volume { width: 64px; }
   .icon-btn { width: 34px; height: 34px; }
   .play-btn { width: 40px; height: 40px; }
   .icon-btn.small.fav { display: none; }
@@ -661,6 +670,8 @@ input[type="range"]::-moz-range-thumb { width: 13px; height: 13px; border-radius
 
 @media (max-width: 480px) {
   .grid { grid-template-columns: 1fr 1fr; }
+  /* тесно: громкость сворачивается в кнопку mute, поиск остаётся на виду */
+  #volume { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

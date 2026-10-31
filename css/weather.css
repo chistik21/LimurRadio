@@ -782,3 +782,130 @@
   .wx-big-icon { animation: none; }
   .glass, .wxw, .wx-modal-box { transition: none; }
 }
+
+/* ============================================================
+   Отдельная страница погоды (weather.html) и общие вкладки
+   ============================================================ */
+
+.wx-standalone {
+  background:
+    radial-gradient(1200px 600px at 80% -10%, #1a2340 0%, transparent 60%),
+    #0b0b10;
+  color: #ececf4;
+  overflow: hidden;
+}
+
+.wx-standalone .page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.wx-standalone .view {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 22px 40px;
+  outline: none;
+}
+
+.wx-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 22px 6px;
+  flex-wrap: wrap;
+}
+
+/* Вкладки приложений: радио · Limurane · Погода */
+.wx-standalone .tabs {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  flex-basis: auto;
+}
+
+.wx-standalone .tab {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 18px;
+  border-radius: 12px;
+  border: 1px solid #1e1e2e;
+  background: #12121a;
+  color: #9a9ab0;
+  font-size: 13.5px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.wx-standalone .tab:hover { color: #ececf4; }
+.wx-standalone .tab.active {
+  color: #ececf4;
+  background: #1a1a26;
+  border-color: #26263a;
+}
+
+.wx-home {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: #cfcfe0;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.wx-home:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+.wx-home-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background:
+    radial-gradient(circle at 70% 82%, #9dff2e 0 14%, transparent 16%),
+    radial-gradient(circle at 22% 20%, #2ea6ff 0 12%, transparent 14%),
+    linear-gradient(135deg, #2a0b45, #120522);
+  border: 1px solid #2d1a44;
+}
+
+.wx-standalone .wx-page { padding-bottom: 40px; }
+
+.wx-standalone .wx-title { color: #fff; }
+
+.wx-standalone .wx-page::before { z-index: 0; }
+
+.wx-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  padding: 11px 18px;
+  border-radius: 999px;
+  background: rgba(34, 19, 51, 0.92);
+  border: 1px solid rgba(255, 120, 120, 0.45);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  z-index: 300;
+  animation: wx-fade 0.2s var(--wx-ease);
+}
+
+@media (max-width: 560px) {
+  .wx-standalone .view { padding: 12px 14px 32px; }
+  .wx-top { padding: 10px 14px 4px; gap: 10px; }
+  .wx-standalone .tab { padding: 8px 12px; font-size: 12.5px; }
+  .wx-home span:last-child { display: none; }
+  .wx-home { padding: 8px 10px; }
+}
