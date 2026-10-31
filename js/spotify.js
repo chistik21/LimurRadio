@@ -148,6 +148,8 @@
       toast("Сначала вставьте Client ID из Spotify Dashboard");
       return;
     }
+    /* callback.html читает Client ID оттуда — фиксируем использованный */
+    localStorage.setItem(LS_CLIENT, cid);
     if (!window.crypto || !window.crypto.subtle) {
       toast("Браузер не поддерживает PKCE");
       return;

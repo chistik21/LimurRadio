@@ -61,8 +61,10 @@
           grant_type: "authorization_code",
           code: code,
           redirect_uri: location.origin + location.pathname.replace(/callback\.html.*$/, ""),
-          /* Client Secret не используется — это PKCE; client_id хранится локально */
-          client_id: localStorage.getItem("limurane.spotify.clientId") || "",
+          /* Client Secret не используется — это PKCE. Client ID берём из
+             хранилища; если его там нет — встроенный в сайт. */
+          client_id: localStorage.getItem("limurane.spotify.clientId") ||
+            "52368657722b4d06bc672a8f6244969c",
           code_verifier: verifier,
         });
 
