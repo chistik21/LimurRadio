@@ -392,6 +392,11 @@ function deleteTrack(id) {
     SpotifyViews.onTrackDeleted(id);
     return;
   }
+  /* Яндекс-треки удаляет их модуль */
+  if (t.source === "yandex" && window.YandexViews) {
+    YandexViews.onTrackDeleted(id);
+    return;
+  }
   const isCloud = t.source === "cloud";
   state.tracks.delete(id);
   state.cloud = state.cloud.filter((c) => c.id !== id);
@@ -470,6 +475,16 @@ async function playCurrent() {
       SpotifyViews.openEmbed(track);
     } else {
       toast("Аудио Spotify в API недоступно — открываю страницу трека");
+      window.open(track.url, "_blank", "noopener");
+    }
+    return;
+  }
+  /* Яндекс Музыка не отдаёт аудио через API — открываем страницу трека */
+  if (track.source === "yandex") {
+    if (window.YandexViews && YandexViews.openYandex) {
+      YandexViews.openYandex(track);
+    } else {
+      toast("Трек откроется в Яндекс Музыке");
       window.open(track.url, "_blank", "noopener");
     }
     return;
@@ -915,6 +930,11 @@ function trackMenuItems(track) {
     items.push({ text: "Слушать здесь · Spotify", icon: "music", action: () => SpotifyViews.openEmbed(track) });
     items.push({ text: "Открыть на Spotify", icon: "search", action: () => window.open(track.url, "_blank", "noopener") });
   }
+  /* Действия Яндекс Музыки */
+  if (track.source === "yandex" && window.YandexViews) {
+    items.push({ text: "Слушать в Яндекс Музыке", icon: "music", action: () => YandexViews.openYandex(track) });
+    items.push({ text: "Открыть в Яндекс Музыке", icon: "search", action: () => window.open(track.url, "_blank", "noopener") });
+  }
 
   items.push({ label: "Добавить в плейлист" });
   if (!state.playlists.length) {
@@ -1093,8 +1113,9 @@ function navigate(view, data = null) {
 }
 
 function currentViewTrackIds() {
-  /* Виды Spotify не имеют локальной очереди треков */
+  /* Виды Spotify и Яндекс не имеют локальной очереди треков */
   if (state.view === "spotify" || state.view.startsWith("spotify-")) return [];
+  if (state.view === "yandex" || state.view.startsWith("yandex-")) return [];
   switch (state.view) {
     case "favorites":
       return state.favorites.filter((id) => state.tracks.has(id));
@@ -1139,6 +1160,10 @@ function render() {
   /* Виды Spotify рисует их модуль */
   if ((state.view === "spotify" || state.view.startsWith("spotify-")) && window.SpotifyViews && SpotifyViews.views[state.view]) {
     return SpotifyViews.views[state.view]();
+  }
+  /* Виды Яндекс Музыки рисует их модуль */
+  if ((state.view === "yandex" || state.view.startsWith("yandex-")) && window.YandexViews && YandexViews.views[state.view]) {
+    return YandexViews.views[state.view]();
   }
   switch (state.view) {
     case "favorites":
@@ -1454,6 +1479,8 @@ function renderSearch() {
 
   /* Spotify подключается к общему поиску (модуль spotify.js, с задержкой на набор) */
   if (window.SpotifyViews && SpotifyViews.onUnifiedQuery) SpotifyViews.onUnifiedQuery(q);
+  /* Яндекс Музыка подключается к общему поиску */
+  if (window.YandexViews && YandexViews.onUnifiedQuery) YandexViews.onUnifiedQuery(q);
 
   if (!state.tracks.size || !searchTracks().length) {
     viewEl.appendChild(
@@ -1463,8 +1490,9 @@ function renderSearch() {
         text: `По запросу «${q}» здесь ничего нет. Проверьте раскладку или поищите по названию трека, исполнителю или альбому.`,
       })
     );
-    /* Но Spotify подключён к общему поиску и ищет по всему каталогу */
+    /* Но Spotify и Яндекс подключены к общему поиску и ищут по всему каталогу */
     if (window.SpotifyViews && SpotifyViews.searchMount) viewEl.appendChild(SpotifyViews.searchMount());
+    if (window.YandexViews && YandexViews.searchMount) viewEl.appendChild(YandexViews.searchMount());
     return;
   }
 
@@ -1502,6 +1530,8 @@ function renderSearch() {
 
   /* Результаты Spotify ниже локальных */
   if (window.SpotifyViews && SpotifyViews.searchMount) viewEl.appendChild(SpotifyViews.searchMount());
+  /* Результаты Яндекс Музыки ниже локальных */
+  if (window.YandexViews && YandexViews.searchMount) viewEl.appendChild(YandexViews.searchMount());
 }
 
 /* ---------------- Облако (Internet Archive) ---------------- */
@@ -1734,10 +1764,11 @@ function refreshSidebar() {
   const nav = $("#sideNav");
   if (nav) {
     nav.querySelectorAll(".side-link").forEach((b) => {
-    const active = b.dataset.nav === state.view ||
-      (b.dataset.nav === "spotify" && state.view.startsWith("spotify-"));
-    b.classList.toggle("active", active);
-  });
+      const active = b.dataset.nav === state.view ||
+        (b.dataset.nav === "spotify" && state.view.startsWith("spotify-")) ||
+        (b.dataset.nav === "yandex" && state.view.startsWith("yandex-"));
+      b.classList.toggle("active", active);
+    });
   }
 
   const list = $("#sidePlaylists");

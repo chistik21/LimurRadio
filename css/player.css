@@ -1159,6 +1159,26 @@ input[type="range"]::-moz-range-thumb {
   margin: 0 0 16px;
 }
 
+/* Статус Яндекс Музыки (без поля Client ID — каталог работает без входа) */
+.yd-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid var(--stroke-soft);
+  border-radius: 14px;
+}
+
+.yd-label {
+  flex-basis: 100%;
+  color: var(--text-dim);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
 .sp-badge {
   position: absolute;
   top: 6px;
