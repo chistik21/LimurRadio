@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Упоротая волна — интернет-радио с живыми потоками: хардбасс, рейв, гоп-фм, транс, чил. Один клик — и в эфире.">
+  <meta name="theme-color" content="#0b0510">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0510'/%3E%3Cpath d='M8 40c4-20 10-20 14-10s10 10 14-10 10-10 14 4' fill='none' stroke='%23ff2ea6' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
+  <title>Упоротая волна — интернет-радио</title>
+  <link rel="stylesheet" href="css/style.css?v=9">
+</head>
+<body>
+  <div class="page">
+  <header class="topbar">
+    <nav class="tabs" aria-label="Приложения">
+      <a class="tab active" href="index.html" aria-current="page">📻 Упоротая волна</a>
+      <a class="tab" href="limurane.html">🎵 Limurane</a>
+    </nav>
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">Упоротая&nbsp;волна</span>
+    </div>
+    <div class="search" role="search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3a7 7 0 1 0 4.2 12.6l4.8 4.8 1.5-1.5-4.8-4.8A7 7 0 0 0 10 3zm0 2.2A4.8 4.8 0 1 1 10 14.8 4.8 4.8 0 0 1 10 5.2z"/></svg>
+      <input type="search" id="searchInput" placeholder="Найти волну: хардбасс, гоп, чил…" autocomplete="off">
+    </div>
+    <button class="chip fav-chip" id="favChip" aria-pressed="false" title="Только избранное">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.8-9.2C.6 8.4 2.6 4.9 6 4.6c2-.2 3.9.9 6 3.2 2.1-2.3 4-3.4 6-3.2 3.4.3 5.4 3.8 3.8 7.2C19.5 16.4 12 21 12 21z"/></svg>
+      Избранное
+    </button>
+  </header>
+
+  <main class="view" id="view" tabindex="-1"></main>
+
+  <!-- Нижняя панель радиоплеера — в потоке страницы, sticky над адресной строкой -->
+  <footer class="player" id="player">
+    <button class="np-btn" id="npBtn" aria-label="Играть текущую волну" disabled>
+      <span class="np-art" id="npArt" aria-hidden="true">📻</span>
+      <span class="np-eq" id="npEq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+    </button>
+    <div class="np-info">
+      <div class="np-title" id="npTitle">Волна не выбрана</div>
+      <div class="np-status">
+        <span class="dot" id="npDot" aria-hidden="true"></span>
+        <span id="npStatus">кликни любую волну</span>
+      </div>
+    </div>
+    <div class="player-controls">
+      <button class="icon-btn" id="btnPrev" aria-label="Предыдущая волна">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2.2v14H6V5zm12.6.4v13.2L8.9 12l9.7-6.6z"/></svg>
+      </button>
+      <button class="play-btn" id="btnPlay" aria-label="Играть">
+        <svg class="ic-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.1v13.8L19 12 8 5.1z"/></svg>
+        <svg class="ic-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.4v14H7V5zm6.6 0H17v14h-3.4V5z"/></svg>
+      </button>
+      <button class="icon-btn" id="btnNext" aria-label="Следующая волна">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.8 5H18v14h-2.2V5zM5.4 5.4 15.1 12l-9.7 6.6V5.4z"/></svg>
+      </button>
+      <button class="icon-btn small fav" id="npFav" aria-label="В избранное" disabled>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.8-9.2C.6 8.4 2.6 4.9 6 4.6c2-.2 3.9.9 6 3.2 2.1-2.3 4-3.4 6-3.2 3.4.3 5.4 3.8 3.8 7.2C19.5 16.4 12 21 12 21z"/></svg>
+      </button>
+    </div>
+    <div class="player-right">
+      <svg class="vol-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z"/></svg>
+      <input type="range" id="volume" min="0" max="1" step="0.01" value="0.9" aria-label="Громкость">
+      <button class="icon-btn mute" id="btnMute" aria-label="Выключить звук">
+        <svg class="ic-vol" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5zm7 .6-1.4 1.6L19 9.4l-2 2.2 2 2.2-1.4 1.6L15.4 13l-1.4 1.4.4.2v-2l1-1.2L14 10l.4-.2L15.4 11l2.6-2.4v-1zM18 5.6l1.4 1.6-2 2.2 2 2.2-1.4 1.6-2-2.2-1.4 1.6V7.8l1.4 1.6 2-3.8z"/></svg>
+        <svg class="ic-muted" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3zm17 .6L18.6 8 16.5 10 14.4 8 13 9.6l2.1 2.4L13 14.4l1.4 1.6 2.1-2 2.1 2 1.4-1.6-2.1-2.4L20 9.6z"/></svg>
+      </button>
+    </div>
+  </footer>
+  </div>
+
+  <div id="toastRoot" aria-live="polite"></div>
+  <audio id="radio" preload="none"></audio>
+
+  <script src="js/app.js?v=8"></script>
+</body>
+</html>
