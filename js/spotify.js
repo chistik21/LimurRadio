@@ -24,6 +24,9 @@
   const API = "https://api.spotify.com/v1";
   const AUTH_URL = "https://accounts.spotify.com/authorize";
   const TOKEN_URL = "https://accounts.spotify.com/api/token";
+  /* Файл с токеном приложения (Client Credentials). Его обновляет
+     GitHub Actions по расписанию; секрет приложения живёт только там. */
+  const APP_TOKEN_FILE = "spotify-token.json";
   const SEARCH_LIMIT = 6; /* у dev-приложений лимите lowered — не просим больше */
 
   /* --- Рабочее состояние секций Spotify --- */
@@ -57,7 +60,63 @@
   }
 
   function isConnected() {
+    return isUserConnected() || !!appToken;
+  }
+
+  function isUserConnected() {
     return !!readToken() && !!clientId();
+  }
+
+  /* ================= Встроенный токен приложения ================= */
+
+  let appToken = null; /* { access_token, expires_at, kind: "app" } */
+  let appTokenPromise = null;
+
+  /* expires_at в файле — секунды; в пользовательском токене — мс */
+  function normalizeExpiry(value) {
+    const n = Number(value) || 0;
+    if (!n) return 0;
+    return n < 1e12 ? n * 1000 : n;
+  }
+
+  function appTokenFresh(t) {
+    return !!(t && t.access_token && t.expires_at - Date.now() > 60000);
+  }
+
+  async function loadAppToken(force = false) {
+    if (!force && appTokenFresh(appToken)) return appToken;
+    if (appTokenPromise && !force) return appTokenPromise;
+
+    appTokenPromise = (async () => {
+      try {
+        const resp = await fetch(APP_TOKEN_FILE + "?t=" + Date.now(), { cache: "no-store" });
+        if (!resp || !resp.ok) return force ? appToken : null;
+        const data = await resp.json();
+        if (!data || !data.access_token) return force ? appToken : null;
+        const t = {
+          access_token: data.access_token,
+          expires_at: normalizeExpiry(data.expires_at),
+          updated_at: normalizeExpiry(data.updated_at),
+          kind: "app",
+        };
+        if (!appTokenFresh(t) && !data.expires_at) {
+          /* Нет срока — считаем токен валидным, 401 перезагрузит файл */
+          t.expires_at = Date.now() + 10 * 60 * 1000;
+        }
+        if (t.expires_at && t.expires_at <= Date.now()) {
+          return force ? appToken : null;
+        }
+        appToken = t;
+        return t;
+      } catch (e) {
+        console.warn("Spotify: встроенный токен недоступен", e);
+        return force ? appToken : null;
+      } finally {
+        appTokenPromise = null;
+      }
+    })();
+
+    return appTokenPromise;
   }
 
   function b64url(bytes) {
@@ -95,22 +154,25 @@
 
   async function getToken() {
     let t = readToken();
-    if (!t) return null;
-    if (t.expires_at - Date.now() > 60000) return t; /* обновляем за минуту до конца */
-    if (!t.refresh_token) {
-      logout(false);
-      return null;
-    }
-    try {
-      return await refreshToken(t);
-    } catch (e) {
-      console.warn("Spotify: не удалось обновить токен", e);
-      if (/400|401/.test(String(e.message))) {
+    if (t) {
+      if (t.expires_at - Date.now() > 60000) return { ...t, kind: "user" }; /* обновляем за минуту до конца */
+      if (t.refresh_token) {
+        try {
+          t = await refreshToken(t);
+          return { ...t, kind: "user" };
+        } catch (e) {
+          console.warn("Spotify: не удалось обновить токен", e);
+          if (/400|401/.test(String(e.message))) {
+            logout(false);
+            toast("Вход Spotify истёк — продолжаю без входа");
+          }
+        }
+      } else {
         logout(false);
-        toast("Вход Spotify истёк — войдите заново");
       }
-      return null;
     }
+    /* Пользовательского входа нет — работаем токеном приложения */
+    return loadAppToken();
   }
 
   async function api(path, params) {
@@ -119,9 +181,17 @@
     let url = API + path + (params ? "?" + new URLSearchParams(params) : "");
     let resp = await fetch(url, { headers: { Authorization: "Bearer " + t.access_token } });
     if (resp.status === 401) {
-      /* одноразовый ретрай: сбрасываем и запрашиваем новый токен */
-      await refreshToken(t);
-      const t2 = readToken();
+      /* одноразовый ретрай: обновляем тот токен, которым работали */
+      let t2 = null;
+      if (t.kind === "app") {
+        t2 = await loadAppToken(true);
+      } else {
+        try {
+          t2 = await refreshToken(t);
+        } catch (e) {
+          t2 = await loadAppToken();
+        }
+      }
       if (!t2) throw new Error("NO_AUTH");
       resp = await fetch(url, { headers: { Authorization: "Bearer " + t2.access_token } });
     }
@@ -279,23 +349,19 @@
     state.spotify.error = null;
     render();
     try {
-      if (!isConnected()) {
-        state.spotify.error = "auth";
-      } else {
-        const data = await api("/search", { q, type: "track,album,artist,playlist", limit: String(SEARCH_LIMIT) });
-        const trackIds = [];
-        for (const t of data.tracks && data.tracks.items || []) {
-          if (!t || !t.id) continue;
-          trackIds.push(registerSpotifyTrack(t));
-        }
-        state.spotify.results = {
-          trackIds,
-          artists: (data.artists && data.artists.items || []).filter((a) => a && a.id),
-          albums: (data.albums && data.albums.items || []).filter((a) => a && a.id),
-          playlists: (data.playlists && data.playlists.items || []).filter((p) => p && p.id),
-        };
-        saveSpotifyTracks();
+      const data = await api("/search", { q, type: "track,album,artist,playlist", limit: String(SEARCH_LIMIT) });
+      const trackIds = [];
+      for (const t of data.tracks && data.tracks.items || []) {
+        if (!t || !t.id) continue;
+        trackIds.push(registerSpotifyTrack(t));
       }
+      state.spotify.results = {
+        trackIds,
+        artists: (data.artists && data.artists.items || []).filter((a) => a && a.id),
+        albums: (data.albums && data.albums.items || []).filter((a) => a && a.id),
+        playlists: (data.playlists && data.playlists.items || []).filter((p) => p && p.id),
+      };
+      saveSpotifyTracks();
     } catch (e) {
       state.spotify.error = e.message === "NO_AUTH" ? "auth" : (e && e.message) || "Ошибка поиска";
       console.warn("Spotify: поиск не удался", e);
@@ -355,10 +421,18 @@
 
   function statusBar() {
     const wrap = el("div", "sp-status");
+    if (appToken) {
+      const ready = el("div", "sp-ready");
+      ready.appendChild(el("span", "sp-dot"));
+      ready.appendChild(el("span", null, "Каталог доступен без входа — работает встроенный токен приложения"));
+      wrap.appendChild(ready);
+    }
     wrap.appendChild(el("div", "sp-label",
-      isClientIdDefault()
-        ? "Приложение Spotify уже подключено к сайту — под своей учёткой достаточно нажать «Войти»."
-        : "Spotify — официальное Web API. Используется ваш Client ID; очистите поле, чтобы вернуть встроенный."));
+      appToken
+        ? "Поиск, альбомы и исполнители работают сразу. Вход в Spotify нужен только для полного воспроизведения внутри Embed-плеера."
+        : isClientIdDefault()
+          ? "Приложение Spotify уже подключено к сайту — под своей учёткой достаточно нажать «Войти»."
+          : "Spotify — официальное Web API. Используется ваш Client ID; очистите поле, чтобы вернуть встроенный."));
     const input = el("input");
     input.type = "text";
     input.placeholder = "Client ID приложения Spotify";
@@ -370,9 +444,16 @@
       localStorage.setItem(LS_CLIENT, input.value.trim());
       if (input.value.trim()) toast("Client ID сохранён");
     });
-    wrap.appendChild(input);
-    const btn = el("button", "btn primary", readToken() ? "Выйти" : "Войти");
-    btn.type = "button";
+    if (appToken) {
+      /* Свой Client ID остаётся доступен, но не мешает основному сценарию */
+      const adv = el("details", "sp-advanced");
+      adv.appendChild(el("summary", null, "Свой Client ID приложения"));
+      adv.appendChild(input);
+      wrap.appendChild(adv);
+    } else {
+      wrap.appendChild(input);
+    }
+    const btn = el("button", "btn" + (appToken ? " ghost" : " primary"), readToken() ? "Выйти" : "Войти");    btn.type = "button";
     btn.setAttribute("aria-label", readToken() ? "Отключить Spotify" : "Войти в Spotify");
     btn.addEventListener("click", () => (readToken() ? logout() : login()));
     wrap.appendChild(btn);
@@ -493,7 +574,8 @@
 
   function errorHintInto(container) {
     if (state.spotify.error === "auth") {
-      container.appendChild(el("p", "sp-hint", "Чтобы искать каталог Spotify, вставьте Client ID и войдите — бесплатно и только для вашего аккаунта."));
+      container.appendChild(el("p", "sp-hint",
+        "Каталог Spotify сейчас недоступен без входа. Нажмите «Войти» — или включите встроенный токен приложения (файл spotify-token.json)."));
     } else if (state.spotify.error) {
       container.appendChild(el("p", "sp-hint", "Spotify: " + state.spotify.error));
     }
@@ -533,8 +615,8 @@
       mount.appendChild(spSpinner());
       return mount;
     }
-    if (state.spotify.error && state.spotify.error !== "auth") {
-      mount.appendChild(el("p", "sp-hint", "Spotify: " + state.spotify.error));
+    if (state.spotify.error) {
+      errorHintInto(mount);
       return mount;
     }
     if (state.spotify.results && state.spotify.query === (state.query || "").trim()) {
@@ -624,7 +706,9 @@
     text.appendChild(el("h1", "hero-title", "Spotify"));
     text.appendChild(el("div", "hero-meta"));
     $(".hero-meta", text).append(document.createTextNode(
-      isConnected() ? "Поиск по всему каталогу · воспроизведение через официальный Embed" : "Поиск по каталогу · войдите, чтобы искать"
+      isConnected()
+        ? "Поиск по всему каталогу · воспроизведение через официальный Embed"
+        : "Поиск по каталогу · нажмите «Войти», если нужен полный трек"
     ));
     hero.appendChild(text);
     viewEl.appendChild(hero);
@@ -892,6 +976,8 @@
     views,
     onTrackDeleted,
     isConnected,
+    hasAppToken: () => !!appToken,
+    loadAppToken,
     searchAll,
     login,
     logout,
@@ -899,4 +985,19 @@
 
   /* Загружаем сохранённые Spotify-треки (избранное/плейлисты с ними работают) */
   loadSpotifyTracks();
+
+  /* Встроенный токен приложения подтягиваем сразу при запуске: поиск
+     работает без входа. Если он пришёл позже — повторяем неудавшийся
+     запрос или перерисовываем раздел. */
+  loadAppToken().then((t) => {
+    if (!t) return;
+    const onSpotify = state.view === "cloud" || state.view === "spotify" ||
+      state.view.startsWith("spotify-") || state.view === "search";
+    if (!onSpotify) return;
+    if (state.spotify.error === "auth" && state.spotify.query) {
+      searchAll(state.spotify.query);
+    } else {
+      render();
+    }
+  });
 })();

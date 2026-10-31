@@ -1101,6 +1101,42 @@ input[type="range"]::-moz-range-thumb {
   line-height: 1.45;
 }
 
+.sp-ready {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #1ed760;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sp-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #1ed760;
+  box-shadow: 0 0 0 4px rgba(30, 215, 96, 0.16);
+  flex-shrink: 0;
+}
+
+.sp-advanced {
+  flex: 1;
+  min-width: 160px;
+}
+
+.sp-advanced summary {
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 12.5px;
+  padding: 8px 0;
+}
+
+.sp-advanced input {
+  width: 100%;
+  margin-top: 4px;
+}
+
 .sp-status input {
   flex: 1;
   min-width: 160px;
