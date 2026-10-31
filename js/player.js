@@ -387,6 +387,11 @@ async function getCoverUrl(id) {
 function deleteTrack(id) {
   const t = state.tracks.get(id);
   if (!t) return;
+  /* Spotify-треки удаляет их модуль (метаданные без файлов) */
+  if (t.source === "spotify" && window.SpotifyViews) {
+    SpotifyViews.onTrackDeleted(id);
+    return;
+  }
   const isCloud = t.source === "cloud";
   state.tracks.delete(id);
   state.cloud = state.cloud.filter((c) => c.id !== id);
@@ -458,6 +463,13 @@ async function playCurrent() {
     return;
   }
   if (position !== queue.indexOf(id)) return; // пользователь уже переключился
+
+  /* Audio Spotify Web API не отдаётся — открываем страницу трека */
+  if (track.source === "spotify") {
+    toast("Аудио Spotify в API недоступно — открываю страницу трека");
+    window.open(track.url, "_blank", "noopener");
+    return;
+  }
 
   const url = await ensureTrackUrl(id);
   if (!url) {
@@ -1065,6 +1077,8 @@ function navigate(view, data = null) {
 }
 
 function currentViewTrackIds() {
+  /* Виды Spotify не имеют локальной очереди треков */
+  if (state.view.startsWith("spotify-")) return [];
   switch (state.view) {
     case "favorites":
       return state.favorites.filter((id) => state.tracks.has(id));
@@ -1106,6 +1120,10 @@ function searchTracks() {
 function render() {
   viewEl.replaceChildren();
   if (state.query) return renderSearch();
+  /* Виды Spotify рисует их модуль */
+  if (state.view.startsWith("spotify-") && window.SpotifyViews && SpotifyViews.views[state.view]) {
+    return SpotifyViews.views[state.view]();
+  }
   switch (state.view) {
     case "favorites":
       return renderFavorites();
@@ -1495,6 +1513,8 @@ const CLOUD_PRESETS = [
 ];
 
 async function cloudSearch(q) {
+  /* Spotify подключается параллельным поиском (модуль spotify.js) */
+  if (window.SpotifyViews && typeof SpotifyViews.cloudHook === "function") SpotifyViews.cloudHook(q);
   cloudQuery = q;
   state.cloudLoading = true;
   state.cloudResults = [];
@@ -1646,6 +1666,9 @@ function renderCloud() {
       })
     );
   }
+
+  /* Строка подключения и результаты Spotify (модуль spotify.js) */
+  if (window.SpotifyViews) viewEl.appendChild(SpotifyViews.cloudExtras());
 
   /* История прослушивания */
   const histIds = state.history.filter((id) => state.tracks.has(id));

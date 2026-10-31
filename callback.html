@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Подключение Spotify — Limurane</title>
+  <link rel="stylesheet" href="css/player.css?v=7">
+  <style>
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .card { max-width: 520px; text-align: center; }
+    .card h1 { font-size: 20px; margin-bottom: 10px; }
+    .card p { color: var(--text-dim); font-size: 14px; line-height: 1.5; }
+    .ok { color: var(--accent-2); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🎵 Limurane · Spotify</h1>
+    <p id="status">Подтверждаю вход…</p>
+  </div>
+
+  <script>
+    (async () => {
+      const $ = (s) => document.querySelector(s);
+      const status = $("#status");
+      const LS_TOKEN = "limurane.spotify.token";
+      const LS_VERIF = "limurane.spotify.verifier";
+      const LS_STATE = "limurane.spotify.state";
+
+      const params = new URLSearchParams(location.search);
+      const error = params.get("error");
+
+      if (error) {
+        status.textContent = error === "access_denied"
+          ? "Вход отменён. Вернитесь в Limurane, если передумали."
+          : "Spotify вернул ошибку: " + error;
+        setTimeout(() => location.replace("limurane.html"), 3000);
+        return;
+      }
+
+      const code = params.get("code");
+      const state = params.get("state");
+      const savedState = localStorage.getItem(LS_STATE);
+      const verifier = localStorage.getItem(LS_VERIF);
+
+      if (!code || !state || !verifier) {
+        status.textContent = "Не хватает параметров входа. Начните вход из Limurane заново.";
+        setTimeout(() => location.replace("limurane.html"), 3000);
+        return;
+      }
+
+      /* CSRF-проверка state (требование PKCE) */
+      if (state !== savedState) {
+        status.textContent = "Несовпадение state — вход прерван из соображений безопасности.";
+        setTimeout(() => location.replace("limurane.html"), 3500);
+        return;
+      }
+
+      try {
+        const body = new URLSearchParams({
+          grant_type: "authorization_code",
+          code: code,
+          redirect_uri: location.origin + location.pathname.replace(/callback\.html.*$/, ""),
+          /* Client Secret не используется — это PKCE; client_id хранится локально */
+          client_id: localStorage.getItem("limurane.spotify.clientId") || "",
+          code_verifier: verifier,
+        });
+
+        const resp = await fetch("https://accounts.spotify.com/api/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body,
+        });
+
+        if (!resp.ok) {
+          status.textContent = "Обмен токена не удался (HTTP " + resp.status + ").";
+          setTimeout(() => location.replace("limurane.html"), 3500);
+          return;
+        }
+
+        const tok = await resp.json();
+        localStorage.setItem(LS_TOKEN, JSON.stringify({
+          access_token: tok.access_token,
+          refresh_token: tok.refresh_token || null,
+          expires_at: Date.now() + (tok.expires_in - 90) * 1000,
+        }));
+        localStorage.removeItem(LS_VERIF);
+        localStorage.removeItem(LS_STATE);
+
+        status.className = "ok";
+        status.textContent = "Spotify подключён! Открываю Limurane…";
+        setTimeout(() => location.replace("limurane.html"), 700);
+      } catch (e) {
+        status.textContent = "Сеть подвела: " + (e && e.message || e);
+        setTimeout(() => location.replace("limurane.html"), 3500);
+      }
+    })();
+  </script>
+</body>
+</html>
