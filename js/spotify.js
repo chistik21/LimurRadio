@@ -19,7 +19,7 @@
 
   /* Client ID приложения сайта (не секрет). Пользователь может
      заменить своим в строке входа. */
-  const DEFAULT_CLIENT_ID = "a2588370d8fa4d658a7d8f21ba4fc65e";
+  const DEFAULT_CLIENT_ID = "52368657722b4d06bc672a8f6244969c";
 
   const API = "https://api.spotify.com/v1";
   const AUTH_URL = "https://accounts.spotify.com/authorize";
