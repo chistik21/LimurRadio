@@ -783,6 +783,68 @@
   .glass, .wxw, .wx-modal-box { transition: none; }
 }
 
+
+/* ---------- Плавность ---------- */
+
+.wx-page {
+  animation: wx-page-in 0.45s var(--wx-ease) both;
+}
+
+@keyframes wx-page-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Стеклянные панели входят одна за другой */
+.wx-panel,
+.wx-hero {
+  animation: wx-rise 0.55s var(--wx-ease) both;
+}
+
+/* .wx-hero тоже считается :nth-of-type, поэтому панели начинаются с 2 */
+.wx-panel:nth-of-type(2) { animation-delay: 0.06s; }
+.wx-panel:nth-of-type(3) { animation-delay: 0.12s; }
+.wx-panel:nth-of-type(4) { animation-delay: 0.18s; }
+
+@keyframes wx-rise {
+  from { opacity: 0; transform: translateY(16px) scale(0.995); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Числа громкости и температура не «прыгают» при смене единиц */
+.wx-temp-big,
+.wxw-temp,
+.wx-hour-temp,
+.wx-day-min,
+.wx-day-max,
+.wx-stat-value {
+  transition: color 0.2s ease;
+}
+
+/* Полоски дней дорисовываются плавно при переключении °C/°F */
+.wx-day-fill {
+  transition: left 0.45s var(--wx-ease), width 0.45s var(--wx-ease);
+}
+
+/* Часы мягко подъезжают под курсором */
+.wx-hour {
+  transition: background 0.2s var(--wx-ease), transform 0.2s var(--wx-ease);
+}
+
+.wx-hour:hover { transform: translateY(-2px); background: rgba(255, 255, 255, 0.1); }
+
+/* Строка дня подсвечивается ровно, без рывка */
+.wx-day { transition: background 0.18s ease; }
+.wx-day:hover { background: rgba(255, 255, 255, 0.06); border-radius: 12px; }
+
+/* Виджет дышит при наведении уже описан; добавим мягкий вход */
+.wxw { animation: wx-rise 0.5s var(--wx-ease) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wx-page, .wx-panel, .wx-hero, .wxw { animation: none !important; }
+  .wx-day-fill, .wx-hour, .wx-day { transition: none !important; }
+}
+
 /* ============================================================
    Отдельная страница погоды (weather.html) и общие вкладки
    ============================================================ */

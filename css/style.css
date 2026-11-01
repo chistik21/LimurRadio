@@ -987,6 +987,58 @@ input[type="range"]::-moz-range-thumb { width: 13px; height: 13px; border-radius
   body.hype { animation: none; }
 }
 
+
+/* ---------- Плавность ---------- */
+
+/* Смена экрана: содержимое мягко уходит и приходит */
+/* .is-leaving включён лишь на 90 мс: гасим уже сыгранные анимации,
+   чтобы содержимое успело уйти, а не «перескакивало» в конец */
+.view.is-leaving > * {
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.09s ease, transform 0.09s ease;
+  animation: none;
+}
+
+.view > * {
+  animation: view-in 0.34s var(--ease) both;
+}
+
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Карточки волн появляются каскадом */
+.station {
+  animation: card-in 0.42s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 18ms);
+}
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Живая волна мягко «включается» при выборе станции */
+.station.live .station-emoji {
+  animation: live-pulse 2.6s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  0%, 100% { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3); }
+  50% { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 0 4px color-mix(in srgb, var(--st, var(--acid)) 16%, transparent); }
+}
+
+/* Тосты дышат */
+#toastRoot .toast { transition: transform 0.2s var(--ease), opacity 0.2s ease; }
+
+/* Настройки движения */
+@media (prefers-reduced-motion: reduce) {
+  .view > *, .station, .view.is-leaving > *,
+  .station.live .station-emoji { animation: none !important; transition: none !important; }
+}
+
 /* ---------- Пасхалки ---------- */
 
 body.hype {

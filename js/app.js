@@ -10,6 +10,9 @@
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
+/* Уважаем системную настройку «уменьшить движение» */
+const CALM = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 /* Диагностика на устройстве: любая ошибка показывается на экране */
 window.addEventListener("error", (e) => {
   const msg = (e && (e.error && e.error.message || e.message)) || "неизвестная ошибка";
@@ -357,12 +360,35 @@ function applyVolumeUI() {
   muteBtn.classList.toggle("muted", state.muted);
 }
 
+/* Громкость: чаще 60 кадров в секунду, но не больше одного setVolume на кадр */
+let volumeFrame = 0;
+let pendingVolume = null;
+
+function pushVolume() {
+  if (!pendingVolume) return;
+  const v = pendingVolume;
+  pendingVolume = null;
+  audio.volume = state.muted ? 0 : v;
+}
+
 $("#volume").addEventListener("input", (e) => {
   state.volume = Number(e.target.value);
   state.muted = state.volume === 0;
   applyVolumeUI();
-  saveState();
+  pendingVolume = state.volume;
+  if (CALM) {
+    pushVolume();
+    return;
+  }
+  if (!volumeFrame) {
+    volumeFrame = requestAnimationFrame(() => {
+      volumeFrame = 0;
+      pushVolume();
+    });
+  }
 });
+
+$("#volume").addEventListener("change", saveState);
 
 $("#btnMute").addEventListener("click", () => {
   state.muted = !state.muted;
@@ -453,9 +479,26 @@ function visibleStations() {
   return [];
 }
 
-function render() {
-  viewEl.replaceChildren();
+/* Перерисовать экран плавно: старый уходит, новый входит.
+   При вводе в поиске заменяем мгновенно, иначе список мерцает. */
+function render({ instant = false } = {}) {
+  if (instant || CALM) {
+    viewEl.replaceChildren();
+    draw();
+    return;
+  }
+  const scroll = viewEl.scrollTop;
+  viewEl.classList.add("is-leaving");
+  setTimeout(() => {
+    viewEl.replaceChildren();
+    draw();
+    viewEl.scrollTop = scroll;
+    viewEl.classList.remove("is-leaving");
+  }, 90);
+}
 
+/* Раскладка текущего экрана: hero, разделы или результаты поиска */
+function draw() {
   const searching = state.query || state.onlyFav;
 
   if (searching) {
@@ -474,7 +517,11 @@ function render() {
       return;
     }
     const grid = el("div", "grid");
-    list.forEach((s) => grid.appendChild(stationCard(s)));
+    list.forEach((s, i) => {
+      const card = stationCard(s);
+      card.style.setProperty("--i", String(Math.min(i, 12)));
+      grid.appendChild(card);
+    });
     viewEl.appendChild(grid);
     return;
   }
@@ -490,7 +537,7 @@ function render() {
   hero.appendChild(sub);
 
   const actions = el("div", "hero-actions");
-  const playBtn = el("button", "btn primary", "Случайная волна 🎲");
+  const playBtn = el("button", "btn primary", "Случайная волна");
   playBtn.addEventListener("click", () => {
     const random = STATIONS[Math.floor(Math.random() * STATIONS.length)];
     playStation(random.id, { fromTable: true });
@@ -521,7 +568,11 @@ function render() {
     const section = el("section", "section");
     section.appendChild(el("h2", "section-title", sec.title));
     const grid = el("div", "grid");
-    stations.forEach((s) => grid.appendChild(stationCard(s)));
+    stations.forEach((s, i) => {
+      const card = stationCard(s);
+      card.style.setProperty("--i", String(Math.min(i, 12)));
+      grid.appendChild(card);
+    });
     section.appendChild(grid);
     viewEl.appendChild(section);
   }
@@ -678,8 +729,9 @@ $("#searchInput").addEventListener("input", (e) => {
   state.query = e.target.value.trim();
   const clear = $("#searchClear");
   if (clear) clear.hidden = !state.query;
-  render();
+  render({ instant: true });
 });
+
 
 $("#searchClear").addEventListener("click", () => clearFilters());
 

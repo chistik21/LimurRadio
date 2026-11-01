@@ -15,6 +15,9 @@
      На странице плеера это те же объекты, что и глобальные. */
   const S = window.state;
 
+  /* Системная настройка «уменьшить движение» — режет плавность, но не данные */
+  const CALM = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
   const LS_W = "limurane.weather.v2";
   const DEFAULT_CITY = { name: "Шумерля", admin: "Чувашия", lat: 55.5005, lon: 46.41288 };
 
@@ -280,10 +283,21 @@
     if (S.view === "weather" && window.viewEl) page();
   }
 
-  async function load(city) {
+  /* Блок «показываем старое, пока грузится новое» — прячем плавно,
+     не сбрасывая страницу на пустой экран */
+  function fade(opacity) {
+    const el = window.viewEl || document.getElementById("view");
+    if (!el || CALM) return;
+    el.style.transition = "opacity 0.18s ease";
+    el.style.opacity = String(opacity);
+  }
+
+  async function load(city, { silent = false } = {}) {
     const w = S.weather;
+    const wasEmpty = !w.data;
     w.loading = true;
     w.error = "";
+    if (silent && !wasEmpty) fade(0.55);
     if (S.view === "weather") repaintWeather();
     else repaint();
     try {
@@ -294,6 +308,7 @@
       w.error = e.message || "Не удалось загрузить погоду";
     }
     w.loading = false;
+    fade(1);
     if (S.view === "weather") repaintWeather();
     else repaint();
     window.dispatchEvent(new CustomEvent("weather:update"));
@@ -302,13 +317,14 @@
   async function setCity(name) {
     S.weather.loading = true;
     S.weather.error = "";
+    fade(0.55);
     if (S.view === "weather") repaintWeather();
     else repaint();
     try {
       const city = await geocode(name);
       S.weather.city = city;
-      S.weather.data = null;
-      await load(city);
+      /* старые данные держим до ответа сервера — экран не пустеет */
+      await load(city, { silent: true });
     } catch (e) {
       S.weather.error = e.message;
       S.weather.loading = false;
@@ -327,6 +343,10 @@
 
   function refresh() {
     return load(S.weather.city);
+  }
+
+  function refreshQuiet() {
+    return load(S.weather.city, { silent: true });
   }
 
   /* На отдельной странице ошибки некуда вывести тостами — показываем их в ленте */
@@ -690,6 +710,7 @@
 
   window.Weather = {
     page,
+    refreshQuiet,
     widget,
     refresh,
     load,
@@ -723,7 +744,7 @@
 
   /* Автообновление: раз в 15 минут, и разово при возврате на вкладку */
   setInterval(() => {
-    if (!document.hidden) refresh();
+    if (!document.hidden) refreshQuiet();
   }, 15 * 60 * 1000);
 
   document.addEventListener("visibilitychange", () => {

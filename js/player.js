@@ -11,6 +11,9 @@
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
+/* Системная настройка «уменьшить движение» */
+const CALM = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -1161,8 +1164,29 @@ function searchTracks() {
   );
 }
 
-function render() {
-  viewEl.replaceChildren();
+/* Плавная смена экрана: старый уходит, новый появляется.
+   Перерисовку из-за загрузки треков делаем без анимации, чтобы не мигало. */
+let viewSwapTimer = null;
+
+function render({ instant = false } = {}) {
+  if (instant || CALM) {
+    clearTimeout(viewSwapTimer);
+    viewEl.classList.remove("is-leaving");
+    viewEl.replaceChildren();
+    return drawView();
+  }
+  const scroll = viewEl.scrollTop;
+  viewEl.classList.add("is-leaving");
+  clearTimeout(viewSwapTimer);
+  viewSwapTimer = setTimeout(() => {
+    viewEl.replaceChildren();
+    drawView();
+    viewEl.scrollTop = scroll;
+    viewEl.classList.remove("is-leaving");
+  }, 90);
+}
+
+function drawView() {
   if (state.query) return renderSearch();
   /* Виды Spotify рисует их модуль */
   if ((state.view === "spotify" || state.view.startsWith("spotify-")) && window.SpotifyViews && SpotifyViews.views[state.view]) {
@@ -1215,7 +1239,9 @@ function renderHome() {
     const grid = el("div", "grid");
     let count = 0;
     for (const g of albums.values()) {
-      grid.appendChild(makeAlbumCard(g));
+      const card = makeAlbumCard(g);
+      card.style.setProperty("--i", String(count));
+      grid.appendChild(card);
       count++;
       if (count >= 8) break;
     }
@@ -1236,7 +1262,11 @@ function renderHome() {
   const secPl = makeSection("Плейлисты", "Создать", () => openPlaylistModal());
   if (state.playlists.length) {
     const grid = el("div", "grid");
-    for (const pl of state.playlists) grid.appendChild(makePlaylistCard(pl));
+    state.playlists.forEach((pl, i) => {
+      const card = makePlaylistCard(pl);
+      card.style.setProperty("--i", String(Math.min(i, 10)));
+      grid.appendChild(card);
+    });
     secPl.appendChild(grid);
   } else {
     const empty = el("p", null, "Плейлистов пока нет — создайте первый или щёлкните ⋯ у любого трека.");
@@ -1929,10 +1959,11 @@ function init() {
 async function boot() {
   init();
   refreshSidebar();
-  render();
+  render({ instant: true });
   await loadLibrary();
   refreshSidebar();
-  render();
+  /* библиотека подгрузилась — обновляем экран без анимации */
+  render({ instant: true });
 }
 
 boot();
