@@ -4,29 +4,89 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="Упоротая волна — интернет-радио с живыми потоками: хардбасс, рейв, гоп-фм, транс, чил. Один клик — и в эфире.">
-  <meta name="theme-color" content="#0b0b10">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0b10'/%3E%3Cpath d='M8 40c4-20 10-20 14-10s10 10 14-10 10-10 14 4' fill='none' stroke='%23ff2ea6' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
+  <meta name="theme-color" content="#08090C">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%2308090C'/%3E%3Cpath d='M10 40c4-16 9-16 13-8s9 8 13-8 9-8 12 2' fill='none' stroke='%23F5F5F7' stroke-width='4.5' stroke-linecap='round'/%3E%3C/svg%3E">
   <title>Упоротая волна — интернет-радио</title>
-  <link rel="stylesheet" href="css/style.css?v=13">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=21">
 </head>
 <body>
+  <!-- Атмосфера: цвет живёт в ::before и меняется плавно из обложки -->
+  <div class="atmos" id="atmos" aria-hidden="true">
+    <span class="atmos-blob a"></span>
+    <span class="atmos-blob b"></span>
+    <span class="atmos-blob c"></span>
+    <span class="atmos-grain"></span>
+  </div>
+
+  <!-- Каркас Liquid Glass для иконок: CHROME — деформация кромки (FrostedGlass),
+       DISP — настоящее преломление для маленьких выпуклых кнопок -->
+  <svg class="glass-defs" width="0" height="0" aria-hidden="true" focusable="false">
+    <defs>
+      <radialGradient id="lg-refract" cx="50%" cy="50%" r="50%">
+        <stop offset="0" stop-color="#fff" stop-opacity="1"/>
+        <stop offset="0.28" stop-color="#a8a8a8" stop-opacity="1"/>
+        <stop offset="0.62" stop-color="#4a4a4a" stop-opacity="1"/>
+        <stop offset="0.9" stop-color="#c8c8c8" stop-opacity="1"/>
+        <stop offset="1" stop-color="#fff" stop-opacity="1"/>
+      </radialGradient>
+      <radialGradient id="lg-refract-flat" cx="50%" cy="42%" r="62%">
+        <stop offset="0" stop-color="#fff" stop-opacity="1"/>
+        <stop offset="0.35" stop-color="#a0a0a0" stop-opacity="1"/>
+        <stop offset="0.75" stop-color="#3c3c3c" stop-opacity="1"/>
+        <stop offset="0.93" stop-color="#9c9c9c" stop-opacity="1"/>
+        <stop offset="1" stop-color="#fff" stop-opacity="1"/>
+      </radialGradient>
+      <filter id="lg-chrome" x="-35%" y="-35%" width="170%" height="170%" color-interpolation-filters="sRGB">
+        <feImage href="#lg-refract" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="map"/>
+        <feDisplacementMap in="SourceGraphic" in2="map" scale="24" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+      <filter id="lg-chrome-flat" x="-35%" y="-35%" width="170%" height="170%" color-interpolation-filters="sRGB">
+        <feImage href="#lg-refract-flat" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="map"/>
+        <feDisplacementMap in="SourceGraphic" in2="map" scale="14" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+      <filter id="lg-refract" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB">
+        <feTurbulence id="lgRefractBase" type="fractalNoise" baseFrequency="0.0005 0.007" numOctaves="1" seed="23" result="noise"/>
+        <feGaussianBlur in="noise" stdDeviation="3" result="soft"/>
+        <feDisplacementMap in="SourceGraphic" in2="soft" scale="52" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+      <filter id="lg-refract-round" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB">
+        <feTurbulence id="lgRefractRound" type="fractalNoise" baseFrequency="0.006 0.006" numOctaves="1" seed="7" result="noise"/>
+        <feGaussianBlur in="noise" stdDeviation="3" result="soft"/>
+        <feDisplacementMap in="SourceGraphic" in2="soft" scale="46" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+      <!-- Текстура стекла: едва видимая зернистость поверхности -->
+      <filter id="lg-grain" x="0" y="0" width="100%" height="100%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="11"/>
+        <feColorMatrix type="saturate" values="0"/>
+        <feComponentTransfer><feFuncA type="linear" slope="0.5" intercept="0"/></feComponentTransfer>
+      </filter>
+    </defs>
+  </svg>
+
   <div class="app">
 
     <!-- Боковая панель -->
-    <aside class="sidebar" id="sidebar" aria-label="Навигация">
+    <aside class="sidebar glass" id="sidebar" aria-label="Навигация">
       <div class="brand">
-        <span class="brand-mark" aria-hidden="true"></span>
-        <span class="brand-name">Упоротая волна</span>
+        <span class="brand-mark" id="brandMark" aria-hidden="true">
+          <svg viewBox="0 0 32 32"><path d="M4 20.5c2.6-10 5.6-10 8-4.5s5.4 5.5 8-4.5 5.6-2 8 1.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
+        </span>
+        <span class="brand-name">Упоротая волна<small>живое радио</small></span>
       </div>
 
       <nav class="side-nav" id="sideNav">
         <button class="side-link active" data-nav="all">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2.4H4V6zm0 5h16v2.4H4V11zm0 5h10v2.4H4V16z"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2.2H4V6zm0 4.9h16v2.2H4v-2.2zm0 4.9h10v2.2H4v-2.2z"/></svg>
           <span>Все волны</span>
           <span class="side-count" id="allCount"></span>
         </button>
         <button class="side-link" data-nav="favorites">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.8-9.2C.6 8.4 2.6 4.9 6 4.6c2-.2 3.9.9 6 3.2 2.1-2.3 4-3.4 6-3.2 3.4.3 5.4 3.8 3.8 7.2C19.5 16.4 12 21 12 21z"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3 4.6 13a4.7 4.7 0 0 1 6.6-6.7l.8.8.8-.8A4.7 4.7 0 0 1 19.4 13L12 20.3z"/></svg>
           <span>Избранное</span>
           <span class="side-count" id="favCount" hidden></span>
         </button>
@@ -37,7 +97,19 @@
         <div class="side-playlists" id="sideMoods"></div>
       </div>
 
-      <button class="upload-cta" id="btnLast">
+      <div class="side-section side-links">
+        <div class="side-head"><span>Приложения</span></div>
+        <a class="side-app" href="limurane.html">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 2a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm0 3.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm0 2.2a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4z"/></svg>
+          <span>Limurane</span>
+        </a>
+        <a class="side-app" href="weather.html">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 19a4.5 4.5 0 0 1-.62-8.96A6.5 6.5 0 0 1 18.4 9.2 4.9 4.9 0 0 1 17.6 19H6.5zm11.1-2a2.9 2.9 0 0 0 .3-5.78l-1.5-.16-.08-1.5A4.5 4.5 0 0 0 7.7 10.3l-.38 1.33-1.4.15A2.5 2.5 0 0 0 6.5 17h11.1z"/></svg>
+          <span>Погода</span>
+        </a>
+      </div>
+
+      <button class="side-cta" id="btnLast">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.1v13.8L19 12 8 5.1z"/></svg>
         Продолжить эфир
       </button>
@@ -47,81 +119,101 @@
 
     <!-- Основная область -->
     <div class="content">
-      <nav class="tabs" aria-label="Приложения">
-        <a class="tab active" href="index.html" aria-current="page">Упоротая волна</a>
-        <a class="tab" href="limurane.html">Limurane</a>
-        <a class="tab" href="weather.html">Погода</a>
-      </nav>
-
-      <header class="topbar">
-        <button class="icon-btn burger" id="btnBurger" aria-label="Меню">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v2.2H3V6zm0 5h18v2.2H3V11zm0 5h18v2.2H3V16z"/></svg>
+      <header class="topbar glass-chrome" id="topbar">
+        <button class="icon-btn burger" id="btnBurger" aria-label="Меню и разделы">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v2.2H3V6zm0 4.9h18v2.2H3v-2.2zm0 4.9h18v2.2H3v-2.2z"/></svg>
         </button>
+
+        <span class="top-name" aria-hidden="true">
+          <b>Упоротая волна</b>
+          <small>интернет-радио · UPWAVE</small>
+        </span>
+
         <div class="search" role="search">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3a7 7 0 1 0 4.2 12.6l4.8 4.8 1.5-1.5-4.8-4.8A7 7 0 0 0 10 3zm0 2.2A4.8 4.8 0 1 1 10 14.8 4.8 4.8 0 0 1 10 5.2z"/></svg>
-          <input type="search" id="searchInput" placeholder="Найти волну: хардбасс, гоп, чил…" autocomplete="off">
+          <input type="search" id="searchInput" placeholder="Найти волну" autocomplete="off" aria-label="Поиск волны">
           <button class="icon-btn small clear-btn" id="searchClear" hidden aria-label="Очистить поиск">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6 6.4 5z"/></svg>
           </button>
         </div>
-        <button class="upload-btn" id="btnRandom">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.1v13.8L19 12 8 5.1z"/></svg>
-          <span>В эфир</span>
+
+        <nav class="tabs" aria-label="Приложения">
+          <a class="tab active" href="index.html" aria-current="page">Радио</a>
+          <a class="tab" href="limurane.html">Limurane</a>
+          <a class="tab" href="weather.html">Погода</a>
+        </nav>
+
+        <a class="top-mini" id="topMini" href="#" aria-label="Играть или поставить на паузу">
+          <span class="top-mini-art" id="topMiniArt" aria-hidden="true"><i></i></span>
+          <span class="top-mini-text">
+            <span class="top-mini-title" id="topMiniTitle">Упоротая волна</span>
+            <span class="top-mini-sub" id="topMiniSub">живое радио</span>
+          </span>
+        </a>
+
+        <button class="icon-btn top-fav-btn" id="topFav" aria-label="Избранное" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3 4.6 13a4.7 4.7 0 0 1 6.6-6.7l.8.8.8-.8A4.7 4.7 0 0 1 19.4 13L12 20.3z"/></svg>
         </button>
       </header>
 
       <main class="view" id="view" tabindex="-1"></main>
+    </div>
 
-      <!-- Нижняя панель радиоплеера — в потоке страницы, sticky над адресной строкой -->
-      <footer class="player" id="player">
-        <div class="player-left">
-          <button class="np-btn" id="npBtn" aria-label="Играть текущую волну" disabled>
-            <span class="np-art" id="npArt" aria-hidden="true"></span>
-            <span class="np-eq" id="npEq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-          </button>
-          <div class="np-info">
-            <div class="np-title" id="npTitle">Волна не выбрана</div>
-            <div class="np-status">
-              <span class="dot" id="npDot" aria-hidden="true"></span>
-              <span id="npStatus">кликни любую волну</span>
-            </div>
+    <!-- Плеер: отдельная стеклянная поверхность над нижней кромкой -->
+    <footer class="player glass-chrome-flat" id="player" aria-label="Плеер">
+      <div class="player-left">
+        <button class="np-art-btn" id="npBtn" aria-label="Играть текущую волну" disabled>
+          <span class="np-art" id="npArt" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M9 18.2a3.1 3.1 0 1 1 1.8-2.8V5l9-1.9v3.3l-7.2 1.5v7.1A3.1 3.1 0 0 1 9 18.2z"/></svg>
+            <span class="np-eq" id="npEq"><i></i><i></i><i></i><i></i></span>
+          </span>
+        </button>
+        <div class="np-info">
+          <div class="np-title" id="npTitle">Волна не выбрана</div>
+          <div class="np-sub" id="npSub">выбери волну и жми play</div>
+          <div class="np-meta">
+            <span class="live-pill" id="livePill"><i class="dot" id="npDot"></i><span id="npStatus">тишина</span></span>
+            <span class="np-listeners" id="npListeners" hidden></span>
           </div>
-          <button class="icon-btn fav" id="npFav" aria-label="В избранное" disabled>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.8-9.2C.6 8.4 2.6 4.9 6 4.6c2-.2 3.9.9 6 3.2 2.1-2.3 4-3.4 6-3.2 3.4.3 5.4 3.8 3.8 7.2C19.5 16.4 12 21 12 21z"/></svg>
+        </div>
+        <button class="icon-btn fav" id="npFav" aria-label="В избранное" disabled>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3 4.6 13a4.7 4.7 0 0 1 6.6-6.7l.8.8.8-.8A4.7 4.7 0 0 1 19.4 13L12 20.3z"/></svg>
+        </button>
+      </div>
+
+      <div class="player-center">
+        <div class="player-buttons">
+          <button class="icon-btn" id="btnPrev" aria-label="Предыдущая волна">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2.2v14H6V5zm12.6.4v13.2L8.9 12l9.7-6.6z"/></svg>
+          </button>
+          <button class="play-btn" id="btnPlay" aria-label="Играть">
+            <span class="play-sheen" aria-hidden="true"></span>
+            <svg class="ic-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5.4v13.2c0 .8.9 1.3 1.6.9l10-6.6c.6-.4.6-1.4 0-1.8l-10-6.6c-.7-.5-1.6 0-1.6.9z"/></svg>
+            <svg class="ic-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h3.2v14H8V5zm4.8 0H16v14h-3.2V5z"/></svg>
+          </button>
+          <button class="icon-btn" id="btnNext" aria-label="Следующая волна">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.8 5H18v14h-2.2V5zM5.4 5.4 15.1 12l-9.7 6.6V5.4z"/></svg>
           </button>
         </div>
+        <canvas class="viz" id="viz" aria-hidden="true"></canvas>
+      </div>
 
-        <div class="player-center">
-          <div class="player-buttons">
-            <button class="icon-btn" id="btnPrev" aria-label="Предыдущая волна">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2.2v14H6V5zm12.6.4v13.2L8.9 12l9.7-6.6z"/></svg>
-            </button>
-            <button class="play-btn" id="btnPlay" aria-label="Играть">
-              <svg class="ic-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.1v13.8L19 12 8 5.1z"/></svg>
-              <svg class="ic-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.4v14H7V5zm6.6 0H17v14h-3.4V5z"/></svg>
-            </button>
-            <button class="icon-btn" id="btnNext" aria-label="Следующая волна">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.8 5H18v14h-2.2V5zM5.4 5.4 15.1 12l-9.7 6.6V5.4z"/></svg>
-            </button>
-          </div>
-          <div class="wave-line" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-        </div>
-
-        <div class="player-right">
-          <button class="icon-btn mute" id="btnMute" aria-label="Выключить звук">
-            <svg class="ic-vol" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5zm7 4a3 3 0 0 1 0 6v-2a1 1 0 0 0 0-2v-2zm0-3a6 6 0 0 1 0 12v-2a4 4 0 0 0 0-8V6z"/></svg>
-            <svg class="ic-muted" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3zm17 .6L18.6 8 16.5 10 14.4 8 13 9.6l2.1 2.4L13 14.4l1.4 1.6 2.1-2 2.1 2 1.4-1.6-2.1-2.4L20 9.6z"/></svg>
-          </button>
-          <svg class="vol-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z"/></svg>
+      <div class="player-right">
+        <button class="icon-btn mute" id="btnMute" aria-label="Выключить звук">
+          <svg class="ic-vol" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5zm7 4a3 3 0 0 1 0 6v-2a1 1 0 0 0 0-2v-2zm0-3a6 6 0 0 1 0 12v-2a4 4 0 0 0 0-8V6z"/></svg>
+          <svg class="ic-muted" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3zm17 .6L18.6 8 16.5 10 14.4 8 13 9.6l2.1 2.4L13 14.4l1.4 1.6 2.1-2 2.1 2 1.4-1.6-2.1-2.4L20 9.6z"/></svg>
+        </button>
+        <div class="vol-wrap">
           <input type="range" id="volume" min="0" max="1" step="0.01" value="0.9" aria-label="Громкость">
         </div>
-      </footer>
-    </div>
+      </div>
+    </footer>
   </div>
 
   <div id="toastRoot" aria-live="polite"></div>
-  <audio id="radio" preload="none"></audio>
+  <audio id="radio" preload="none" crossorigin="anonymous"></audio>
 
-  <script src="js/app.js?v=11"></script>
+  <script src="js/live.js?v=1"></script>
+  <script src="js/app.js?v=13"></script>
 </body>
 </html>
