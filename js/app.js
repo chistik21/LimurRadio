@@ -378,6 +378,7 @@ function toggleFavorite(id) {
   else state.favorites.push(id);
   saveState();
   render();
+  refreshSidebar();
   updatePlayerUI();
 }
 
@@ -512,26 +513,6 @@ function render() {
   hero.appendChild(marquee);
   viewEl.appendChild(hero);
 
-  // фильтры
-  const chips = el("div", "chips");
-  const chipAll = el("button", "chip small" + (!state.view && !state.query && !state.onlyFav ? " on" : ""), "Все волны");
-  chipAll.addEventListener("click", () => clearFilters());
-  chips.appendChild(chipAll);
-  for (const sec of SECTIONS) {
-    const chip = el("button", "chip small" + (state.view === sec.key ? " on" : ""), sec.title.replace(/^\p{Extended_Pictographic}\uFE0F?\s+/u, ""));
-    chip.addEventListener("click", () => {
-      state.query = "";
-      $("#searchInput").value = "";
-      state.onlyFav = false;
-      $("#favChip").classList.remove("on");
-      $("#favChip").setAttribute("aria-pressed", "false");
-      state.view = state.view === sec.key ? null : sec.key;
-      render();
-    });
-    chips.appendChild(chip);
-  }
-  viewEl.appendChild(chips);
-
   // секции
   const filtered = state.view ? STATIONS.filter((s) => s.mood === state.view) : STATIONS;
   for (const sec of SECTIONS) {
@@ -544,16 +525,77 @@ function render() {
     section.appendChild(grid);
     viewEl.appendChild(section);
   }
+
+  refreshSidebar();
+}
+
+/* ---------- Сайдбар: разделы, избранное, счётчики ---------- */
+
+function refreshSidebar() {
+  const list = $("#sideMoods");
+  const links = document.querySelectorAll("#sideNav .side-link");
+  if (!list) return;
+
+  links.forEach((b) => {
+    const on = b.dataset.nav === "favorites" ? state.onlyFav : !state.onlyFav && !state.view;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-current", on ? "page" : "false");
+  });
+
+  const allCount = $("#allCount");
+  if (allCount) allCount.textContent = String(STATIONS.length);
+
+  const favCount = $("#favCount");
+  if (favCount) {
+    favCount.hidden = state.favorites.length === 0;
+    favCount.textContent = String(state.favorites.length);
+  }
+
+  list.replaceChildren();
+  for (const sec of SECTIONS) {
+    const n = STATIONS.filter((s) => s.mood === sec.key).length;
+    const on = !state.onlyFav && state.view === sec.key;
+    const b = el("button", "side-playlist" + (on ? " active" : ""));
+    b.dataset.mood = sec.key;
+    b.style.setProperty("--st", MOOD_COLORS[sec.key] || "var(--acid)");
+    b.appendChild(el("span", "mini-cover"));
+    b.appendChild(el("span", "pl-name", sec.title.replace(/^\p{Extended_Pictographic}\uFE0F?\s+/u, "")));
+    b.appendChild(el("span", "pl-count", String(n)));
+    list.appendChild(b);
+  }
+}
+
+const MOOD_COLORS = { main: "#ff2ea6", loud: "#ff5252", calm: "#2ea6ff", olds: "#ffcf8a" };
+
+document.addEventListener("click", (e) => {
+  const mood = e.target.closest("[data-mood]");
+  if (mood) {
+    const key = mood.dataset.mood;
+    state.query = "";
+    state.onlyFav = false;
+    state.view = state.view === key ? null : key;
+    const input = $("#searchInput");
+    if (input) input.value = "";
+    closeSidebar();
+    render();
+  }
+});
+
+function closeSidebar() {
+  const sb = $("#sidebar");
+  const bd = $("#sidebarBackdrop");
+  if (sb) sb.classList.remove("open");
+  if (bd) bd.hidden = true;
 }
 
 function clearFilters() {
   state.query = "";
   state.onlyFav = false;
   state.view = null;
-  $("#searchInput").value = "";
-  const fc = $("#favChip");
-  fc.classList.remove("on");
-  fc.setAttribute("aria-pressed", "false");
+  const input = $("#searchInput");
+  if (input) input.value = "";
+  const clear = $("#searchClear");
+  if (clear) clear.hidden = true;
   render();
 }
 
@@ -630,19 +672,57 @@ function updatePlayerUI() {
   }
 }
 
-/* ---------------- Поиск и фильтры ---------------- */
+/* ---------------- Навигация, поиск и фильтры ---------------- */
 
 $("#searchInput").addEventListener("input", (e) => {
   state.query = e.target.value.trim();
+  const clear = $("#searchClear");
+  if (clear) clear.hidden = !state.query;
   render();
 });
 
-$("#favChip").addEventListener("click", () => {
-  state.onlyFav = !state.onlyFav;
-  const chip = $("#favChip");
-  chip.classList.toggle("on", state.onlyFav);
-  chip.setAttribute("aria-pressed", String(state.onlyFav));
+$("#searchClear").addEventListener("click", () => clearFilters());
+
+$("#sideNav").addEventListener("click", (e) => {
+  const btn = e.target.closest(".side-link");
+  if (!btn) return;
+  if (btn.dataset.nav === "favorites") {
+    state.onlyFav = !state.onlyFav;
+    state.view = null;
+  } else {
+    state.onlyFav = false;
+    state.view = null;
+  }
+  state.query = "";
+  const input = $("#searchInput");
+  if (input) input.value = "";
+  const clear = $("#searchClear");
+  if (clear) clear.hidden = true;
+  closeSidebar();
   render();
+});
+
+$("#btnBurger").addEventListener("click", () => {
+  $("#sidebar").classList.add("open");
+  $("#sidebarBackdrop").hidden = false;
+});
+
+$("#sidebarBackdrop").addEventListener("click", closeSidebar);
+
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeSidebar();
+});
+
+$("#btnRandom").addEventListener("click", () => {
+  const st = STATIONS[Math.floor(Math.random() * STATIONS.length)];
+  playStation(st.id, { fromTable: true });
+  toast(`${st.emoji} ${st.name} — погнали`);
+});
+
+$("#btnLast").addEventListener("click", () => {
+  closeSidebar();
+  if (state.lastChannel && stationById(state.lastChannel)) playStation(state.lastChannel, { fromTable: true });
+  else toast("Прошлой волны пока не было");
 });
 
 /* ---------------- Пасхалки ---------------- */
@@ -742,11 +822,8 @@ function init() {
     if (e.target.closest("[data-action='clear']")) clearFilters();
   });
 
-  const chip = $("#favChip");
-  chip.classList.toggle("on", state.onlyFav);
-  chip.setAttribute("aria-pressed", String(state.onlyFav));
-
   render();
+  refreshSidebar();
   updatePlayerUI();
 
   // восстановить последнюю волну (без автоплея — браузеры его блокируют)
