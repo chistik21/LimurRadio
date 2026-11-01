@@ -73,26 +73,26 @@ function toast(message, isError = false) {
 /* ---------------- Волны ---------------- */
 
 const STATIONS = [
-  { id: "volna",   name: "Упоротая волна",     genre: "музыка всех направлений", stream: "https://stream.net-fm.ru/listen/upwaveradio/stream128", color: "#8fa6d8", art: "https://stream.net-fm.ru/api/station/upwaveradio/art/1a454bdafdac5b6197006251-1775474796.jpg", mood: "main", origin: "upwave", quality: "128 kbps", nowplaying: "https://stream.net-fm.ru/api/nowplaying/upwaveradio" },
+  { id: "volna",   name: "Упоротая волна",     genre: "музыка всех направлений", stream: "https://stream.net-fm.ru/listen/upwaveradio/stream128", color: "#8fa6d8", mood: "main", origin: "upwave", quality: "128 kbps", nowplaying: "https://stream.net-fm.ru/api/nowplaying/upwaveradio" },
   { id: "volna-hq", name: "Упоротая волна HQ", genre: "максимум качества",       stream: "https://stream.net-fm.ru/listen/upwaveradio/stream320", color: "#9d8fd6", mood: "main", origin: "upwave", quality: "320 kbps", nowplaying: "https://stream.net-fm.ru/api/nowplaying/upwaveradio" },
 
-  { id: "gop",     name: "Гоп FM",             genre: "хардбасс на весь двор",  stream: "https://radiorecord.hostingradio.ru/gop96.aacp",     color: "#d68fae", art: "https://www.radiorecord.ru/upload/iblock/1c4/gopfm.jpeg", mood: "loud", origin: "record", quality: "AAC+" },
-  { id: "hbass",   name: "Hard Bass",          genre: "качает фундамент",       stream: "https://radiorecord.hostingradio.ru/hbass96.aacp",   color: "#d8907e", art: "https://www.radiorecord.ru/upload/iblock/11e/hardbass.jpeg", mood: "loud", origin: "record", quality: "AAC+" },
-  { id: "rave",    name: "Rave FM",            genre: "рейв без прав",          stream: "https://radiorecord.hostingradio.ru/rave96.aacp",   color: "#8fb4d8", art: "https://www.radiorecord.ru/upload/iblock/ea0/5210215.jpg", mood: "loud", origin: "record", quality: "AAC+" },
-  { id: "ps",      name: "Pirate Station",     genre: "днб-корсары",            stream: "https://radiorecord.hostingradio.ru/ps96.aacp",     color: "#7fa8c8", art: "https://www.radiorecord.ru/upload/iblock/ace/360360clean.jpg", mood: "loud", origin: "record", quality: "AAC+" },
-  { id: "dub",     name: "Dubstep",            genre: "вайбры фундамента",      stream: "https://radiorecord.hostingradio.ru/dub96.aacp",    color: "#cdb894", art: "https://www.radiorecord.ru/upload/iblock/7da/2144037.jpg", mood: "loud", origin: "record", quality: "AAC+" },
-  { id: "techno",  name: "Techno",             genre: "бетонный пульс",         stream: "https://radiorecord.hostingradio.ru/techno96.aacp", color: "#9d8fd6", art: "https://www.radiorecord.ru/upload/iblock/a2d/techno.jpeg", mood: "loud", origin: "record", quality: "AAC+" },
-  { id: "goa",     name: "GOA / PSY",          genre: "психонавтика",           stream: "https://radiorecord.hostingradio.ru/goa96.aacp",    color: "#82c4b8", art: "https://www.radiorecord.ru/upload/iblock/46d/goapsy.jpeg", mood: "loud", origin: "record", quality: "AAC+" },
+  { id: "gop",     name: "Гоп FM",             genre: "хардбасс на весь двор",  stream: "https://radiorecord.hostingradio.ru/gop96.aacp",     color: "#d68fae", mood: "loud", origin: "record", quality: "AAC+" },
+  { id: "hbass",   name: "Hard Bass",          genre: "качает фундамент",       stream: "https://radiorecord.hostingradio.ru/hbass96.aacp",   color: "#d8907e", mood: "loud", origin: "record", quality: "AAC+" },
+  { id: "rave",    name: "Rave FM",            genre: "рейв без прав",          stream: "https://radiorecord.hostingradio.ru/rave96.aacp",   color: "#8fb4d8", mood: "loud", origin: "record", quality: "AAC+" },
+  { id: "ps",      name: "Pirate Station",     genre: "днб-корсары",            stream: "https://radiorecord.hostingradio.ru/ps96.aacp",     color: "#7fa8c8", mood: "loud", origin: "record", quality: "AAC+" },
+  { id: "dub",     name: "Dubstep",            genre: "вайбры фундамента",      stream: "https://radiorecord.hostingradio.ru/dub96.aacp",    color: "#cdb894", mood: "loud", origin: "record", quality: "AAC+" },
+  { id: "techno",  name: "Techno",             genre: "бетонный пульс",         stream: "https://radiorecord.hostingradio.ru/techno96.aacp", color: "#9d8fd6", mood: "loud", origin: "record", quality: "AAC+" },
+  { id: "goa",     name: "GOA / PSY",          genre: "психонавтика",           stream: "https://radiorecord.hostingradio.ru/goa96.aacp",    color: "#82c4b8", mood: "loud", origin: "record", quality: "AAC+" },
 
-  { id: "chil",    name: "Chill-Out",          genre: "плавно и туманно",       stream: "https://radiorecord.hostingradio.ru/chil96.aacp",   color: "#8fb4d8", art: "https://www.radiorecord.ru/upload/iblock/d01/chillout.jpeg", mood: "calm", origin: "record", quality: "AAC+" },
-  { id: "chillh",  name: "Chill House",        genre: "дом, но расслабленный",  stream: "https://radiorecord.hostingradio.ru/chillhouse96.aacp", color: "#8fc0d8", art: "https://www.radiorecord.ru/upload/iblock/5ba/chillhouse.jpeg", mood: "calm", origin: "record", quality: "AAC+" },
-  { id: "lofih",   name: "Lo-Fi House",        genre: "шершавый винил",         stream: "https://radiorecord.hostingradio.ru/lofihouse96.aacp", color: "#b9a8d6", art: "https://www.radiorecord.ru/upload/iblock/f9a/lf360.jpg", mood: "calm", origin: "record", quality: "AAC+" },
-  { id: "soma-gs", name: "Groove Salad",       genre: "амбиент и эмбиент-биты", stream: "https://ice1.somafm.com/groovesalad-256-mp3",       color: "#82c4b8", art: "https://somafm.com/img3/groovesalad-400.jpg", mood: "calm", origin: "soma", quality: "MP3 256" },
-  { id: "soma-dc", name: "DEF CON Radio",      genre: "для хакеров и не только", stream: "https://ice1.somafm.com/defcon-256-mp3",           color: "#8fc0d8", art: "https://somafm.com/img3/defcon-400.jpg", mood: "calm", origin: "soma", quality: "MP3 256" },
+  { id: "chil",    name: "Chill-Out",          genre: "плавно и туманно",       stream: "https://radiorecord.hostingradio.ru/chil96.aacp",   color: "#8fb4d8", mood: "calm", origin: "record", quality: "AAC+" },
+  { id: "chillh",  name: "Chill House",        genre: "дом, но расслабленный",  stream: "https://radiorecord.hostingradio.ru/chillhouse96.aacp", color: "#8fc0d8", mood: "calm", origin: "record", quality: "AAC+" },
+  { id: "lofih",   name: "Lo-Fi House",        genre: "шершавый винил",         stream: "https://radiorecord.hostingradio.ru/lofihouse96.aacp", color: "#b9a8d6", mood: "calm", origin: "record", quality: "AAC+" },
+  { id: "soma-gs", name: "Groove Salad",       genre: "амбиент и эмбиент-биты", stream: "https://ice1.somafm.com/groovesalad-256-mp3",       color: "#82c4b8", mood: "calm", origin: "soma", quality: "MP3 256" },
+  { id: "soma-dc", name: "DEF CON Radio",      genre: "для хакеров и не только", stream: "https://ice1.somafm.com/defcon-256-mp3",           color: "#8fc0d8", mood: "calm", origin: "soma", quality: "MP3 256" },
 
-  { id: "sd90",    name: "Супердискотека 90-х", genre: "дискотека из детства",  stream: "https://radiorecord.hostingradio.ru/sd9096.aacp",  color: "#d8a87a", art: "https://www.radiorecord.ru/upload/iblock/93b/sdmbl.jpeg", mood: "olds", origin: "record", quality: "AAC+" },
-  { id: "y1980",   name: "Record 80-х",        genre: "синт-волны и круиз",     stream: "https://radiorecord.hostingradio.ru/198096.aacp",  color: "#d68fae", art: "https://www.radiorecord.ru/upload/iblock/399/2635204.jpg", mood: "olds", origin: "record", quality: "AAC+" },
-  { id: "rus",     name: "Russian Mix",        genre: "ностальгия по-нашему",   stream: "https://radiorecord.hostingradio.ru/rus96.aacp",   color: "#8fa6d8", art: "https://www.radiorecord.ru/upload/iblock/96a/russianmix.jpeg", mood: "olds", origin: "record", quality: "AAC+" },
+  { id: "sd90",    name: "Супердискотека 90-х", genre: "дискотека из детства",  stream: "https://radiorecord.hostingradio.ru/sd9096.aacp",  color: "#d8a87a", mood: "olds", origin: "record", quality: "AAC+" },
+  { id: "y1980",   name: "Record 80-х",        genre: "синт-волны и круиз",     stream: "https://radiorecord.hostingradio.ru/198096.aacp",  color: "#d68fae", mood: "olds", origin: "record", quality: "AAC+" },
+  { id: "rus",     name: "Russian Mix",        genre: "ностальгия по-нашему",   stream: "https://radiorecord.hostingradio.ru/rus96.aacp",   color: "#8fa6d8", mood: "olds", origin: "record", quality: "AAC+" },
   { id: "soma-80", name: "Underground 80s",    genre: "подпольные восьмидесятые", stream: "https://ice1.somafm.com/u80s-256-mp3",           color: "#9d8fd6", mood: "olds", origin: "soma", quality: "MP3 256" },
 ];
 
@@ -152,7 +152,7 @@ const stationById = (id) => STATIONS.find((s) => s.id === id) || null;
 function stationArt(st) {
   const live = window.RadioLive && window.RadioLive.now(st.id);
   if (st.nowplaying && live && live.art) return live.art;
-  return st.art || "";
+  return "";
 }
 
 const ORIGIN_LABEL = { upwave: "UPWAVE RADIO", record: "Radio Record", soma: "SomaFM" };
@@ -748,7 +748,7 @@ function buildHero() {
   const artBox = el("div", "hero-art");
   artBox.id = "heroArt";
   const inner = el("div", "hero-art-inner");
-  inner.appendChild(artNode((st && stationArt(st)) || "", st || null, "hero-art-img"));
+  inner.appendChild(artNode(st ? stationArt(st) : "", st, "hero-art-img"));
   artBox.appendChild(inner);
   artBox.appendChild(el("div", "hero-art-sheen"));
   const badge = el("div", "hero-art-badge");
